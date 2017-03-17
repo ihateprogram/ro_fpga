@@ -1,0 +1,281 @@
+// This module has a 3 level pipeline to make the LZ77 encoder output only matches
+// greater than 3 characters in the data stream.
+
+//`include "functions.v"
+
+`define MAX_LENGTH 9'd258
+
+`define REMOVE_ME
+
+module lz77_match_filter
+    #( 
+     	parameter DATA_WIDTH = 8,
+		parameter DICTIONARY_DEPTH_LOG = 16,
+		parameter CNT_WIDTH = 9     // The counter size must be changed according to the maximum match length
+	)
+    (
+    // Module inputs
+    input clk,	
+    input rst_n,
+    input [DICTIONARY_DEPTH_LOG-1:0] match_position,
+	input [CNT_WIDTH-1:0]            match_length,
+	input [DATA_WIDTH-1:0]           next_symbol,
+	input output_enable_in,	
+    input gzip_last_symbol,
+	
+    // Module outputs 
+    output reg        lz77_filt_valid,  
+    //output reg        lz77_filt_last,
+    output reg [5 :0] lz77_filt_size,     // maximum length can be 32 bits
+	output reg [31:0] lz77_filt_data      // 32 bits of data
+    );
+
+	// Module parameters
+	localparam [4:0] IDLE              = 5'b00001,
+	                MATCH_LENGTH0      = 5'b00010,
+	                MATCH_LENGTH1      = 5'b00100,
+	                MATCH_LENGTH2      = 5'b01000,
+                    MATCH_LENGTH3      = 5'b10000;
+					
+    localparam MATCH_POS_ZEROS = 16 - DICTIONARY_DEPTH_LOG;
+    localparam MATCH_LEN_ZEROS = 9 - CNT_WIDTH;
+	
+    `ifdef REMOVE_ME
+        reg [8*12:1] text_lz77_filter = "nimic";
+    `endif
+	
+					
+	// Registers 
+	reg [DICTIONARY_DEPTH_LOG-1:0] match_position_buff0; 
+	reg [CNT_WIDTH-1:0]            match_length_buff0;
+	reg [DATA_WIDTH-1:0]           next_symbol_buff0, next_symbol_buff1, next_symbol_buff2;
+    reg [4:0] state, next_state, next_state_decoder;
+	//reg [1:0] cnt_states, cnt_states_next;
+	reg output_enable;
+	 
+	reg [8:0] sliteral_data_buff1;
+	reg [8:0] sliteral_data_buff2;
+	reg [3:0] sliteral_valid_bits_buff1;
+	reg [3:0] sliteral_valid_bits_buff2;
+	
+	reg gzip_last_symbol_buff;
+	
+	wire [4:0] sliteral_valid_bits_sum; 
+	
+	// Combinational logic
+	wire match_length_eq0;
+	wire match_length_eq1;
+	wire match_length_eq2;
+	
+	//wire  [8:0] sliteral_in,                    // 9bits 
+	//input  literal_valid_in,                    // literal_valid_in is used to enable the conversion of the lengths
+	wire         slength_valid_out;
+	wire [12:0]  slength_data_out;
+	wire [3:0]   slength_valid_bits; 
+	
+	wire         sdht_data_valid_out;
+	wire [17:0]  sdht_data_merged;   
+	wire [4 :0]  sdht_valid_bits;
+	
+    // Module outputs
+	wire        slit_i0_valid_out;
+	wire [8:0]  slit_i0_data;                     // 9 bits Huffman
+    wire [3:0]  slit_i0_valid_bits; 	
+
+	
+	// These other signals are used to determine if the encoder should output the data unencoded
+	assign match_length_eq0     = (match_length == 0);
+    assign match_length_eq1     = (match_length == 1);
+    assign match_length_eq2     = (match_length == 2);
+
+
+	//====================================================================================================================
+	//========================= Static Huffman trees for literals, distance and lengths ==================================
+	//====================================================================================================================
+
+    //========================= Huffman static literals tree =========================
+    sliteral slit_i0
+    (
+    // Module inputs
+    .clk,	
+    .rst_n,	
+	.literal_in         ( next_symbol      ),  // 9bits
+	.literal_valid_in   ( 1'b1             ),  // literal_valid_in is used to enable the conversion of the lengths. always enabled to have the past two values calculated if needed
+    .gzip_last_symbol,	
+	
+    // Module outputs
+	//.sliteral_valid_out (slit_i0_valid_out ),
+	//.sliteral_valid_out (  ),                  // leave this unconnected because we don't need it
+	.sliteral_data      (slit_i0_data      ),  // 9 bits Huffman
+    .sliteral_valid_bits(slit_i0_valid_bits)   // this output says how many binary encoded bits are valid from the output of the decoder 
+    );
+
+	// Make 2 buffers for the SLITERAL values and data widths. These will be used to memorize the last 2 values.
+    always @(posedge clk or negedge rst_n)
+	begin
+	    if(!rst_n) begin                           
+		    sliteral_data_buff1       <= 0;
+		    sliteral_data_buff2       <= 0;
+			sliteral_valid_bits_buff1 <= 0;
+			sliteral_valid_bits_buff2 <= 0;	
+		end
+		else begin
+		    sliteral_data_buff1       <= slit_i0_data;
+		    sliteral_data_buff2       <= sliteral_data_buff1;
+			sliteral_valid_bits_buff1 <= slit_i0_valid_bits;
+			sliteral_valid_bits_buff2 <= sliteral_valid_bits_buff1;
+		end
+	end	
+	
+
+	assign sliteral_valid_bits_sum = sliteral_valid_bits_buff1 + slit_i0_valid_bits;
+	
+	// Make 1 buffer for gzip_last_symbol to cover the MATCH_LENGTH3 case. (a match >= 3 is the last and no character comes after it)
+    always @(posedge clk or negedge rst_n)
+	begin
+	    if(!rst_n) begin                           
+		    gzip_last_symbol_buff <= 0;
+		end
+		else begin
+		    gzip_last_symbol_buff <= gzip_last_symbol;
+		end
+	end		
+	
+	//========================= Huffman static lengths tree =========================
+    slength slength_i0
+    (
+    // Module inputs
+    .clk,	
+    .rst_n,	
+	.match_length_in      ( { {MATCH_LEN_ZEROS{1'b0}} ,match_length } ),                      // 9bits: 3 <= match_length  <= 258   
+	//.match_length_valid_in( next_state_decoder == MATCH_LENGTH3 ),    // This module is enabled only when match_length >= 3 
+	
+    // Module outputs
+	//.slength_valid_out  (   ),
+	.slength_data_out,                          // 13 bits { <7/8bit Huffman>, 5 extra bit binary code}
+    .slength_valid_bits                            // this output says how many binary encoded bits are valid from the output of the decoder 
+    );	
+	
+	
+	//========================= Huffman static distance tree =========================
+    sdht sdht_i0                                   // FIXME - there is a problem with huffman decoders
+    (
+    // Module inputs
+    .clk,	
+    .rst_n,
+	.match_pos_in      ( { {MATCH_POS_ZEROS{1'b0}}, match_position } ),
+	//.match_pos_valid_in( next_state_decoder == MATCH_LENGTH3 ),  
+	
+    // Module outputs
+	//.sdht_data_valid_out(   ),             // unconnected
+	.sdht_data_merged,                     // 18 bits { <5bit Huffman>, 13 bit binary code}
+    .sdht_valid_bits                       // this output says how many binary encoded bits are valid from the output of the decoder 
+    );	
+	
+	
+	//====================================================================================================================
+	//============================================ State machine sequencing ==============================================
+	//====================================================================================================================	
+	// Combinational logic for output selection
+	// The output corner cases are :   out_en   |   match_length     | Result
+	//                                    0     |        x           | next_symbol[n]
+	//                                    1     |        0           | Output next_symbol[n]  
+	//                                    1     |        1           | Output next_symbol[n-1], next_symbol[n]
+	//                                    1     |        2           | Output next_symbol[n-2], next_symbol[n-1], next_symbol[n]	
+	//                                    1     |        >= 3        | Output next_symbol[n],   match_position, match_position_valid=1
+	//                                    1     |        =MAX_SIZE   | Output next_symbol[n],   match_position, match_position_valid=1 -- FIXME - not sure	
+	
+    // Sequential part of the state machine
+	always @(posedge clk or negedge rst_n)
+	begin
+	    if (!rst_n) state <= IDLE;
+	    else        state <= next_state;
+	end
+
+	// Combinational next_state decoder
+	always @(*)
+	begin
+		if ( output_enable_in | gzip_last_symbol ) begin
+		        if      (match_length_eq0) next_state_decoder <= MATCH_LENGTH0;
+		        else if (match_length_eq1) next_state_decoder <= MATCH_LENGTH1; 
+		        else if (match_length_eq2) next_state_decoder <= MATCH_LENGTH2; 
+ 		        else                       next_state_decoder <= MATCH_LENGTH3; 
+            end
+        else 
+            next_state_decoder <= IDLE;		    
+	end
+	
+    // Combinational part of the state machine	
+	always @(*)
+    begin
+	    next_state           <= IDLE;
+	
+        lz77_filt_valid      <= 0;
+        lz77_filt_size       <= 0;
+        lz77_filt_data       <= 0;
+		
+	    //cnt_states_next      <= 0;
+		
+        case (state)
+		    IDLE          : begin	
+
+			    `ifdef REMOVE_ME text_lz77_filter <="IDLE"; `endif
+                next_state <= next_state_decoder;
+	
+			end
+			
+            MATCH_LENGTH0 : begin                    // This treats the case when a character is new in the dictionary
+			
+			    `ifdef REMOVE_ME text_lz77_filter <="MATCH_LENGTH0"; `endif
+				lz77_filt_valid    <= 1;
+                lz77_filt_size     <= slit_i0_valid_bits;
+				lz77_filt_data     <= slit_i0_data;
+				
+				next_state         <= next_state_decoder;
+				
+			end
+
+			MATCH_LENGTH1 : begin                   // This treats the case when a character has occured 1 time in the dictionary (even if it is found at multiple positions)
+				
+				`ifdef REMOVE_ME text_lz77_filter <="MATCH_LENGTH1"; `endif
+				lz77_filt_valid    <= 1;
+                lz77_filt_size     <= slit_i0_valid_bits + sliteral_valid_bits_buff1;								
+				lz77_filt_data     <= ( sliteral_data_buff1 << slit_i0_valid_bits) | slit_i0_data;		
+				
+				next_state <= next_state_decoder;
+				
+			end
+			
+			
+            MATCH_LENGTH2 : begin                   // This treats the case when a 2 character string is found in the dictionary 
+			
+			    `ifdef REMOVE_ME text_lz77_filter <="MATCH_LENGTH2"; `endif
+				lz77_filt_valid    <= 1;
+                lz77_filt_size     <= slit_i0_valid_bits + sliteral_valid_bits_buff1 + sliteral_valid_bits_buff2;								
+				lz77_filt_data     <= ( sliteral_data_buff2 << sliteral_valid_bits_sum ) | 
+                       				  ( sliteral_data_buff1 << slit_i0_valid_bits      ) | 
+									    slit_i0_data ;		
+					
+				next_state <= next_state_decoder;
+					
+			end
+			
+			MATCH_LENGTH3 : begin                   // If more than 3 characters are found to match then a <length, backward distance> pair is output, 
+			                                        // length is drawn from (3..258) and the distance is drawn from (1 ... 32,768)
+				`ifdef REMOVE_ME text_lz77_filter <="MATCH_LENGTH3"; `endif									 
+                lz77_filt_valid    <= 1;
+                lz77_filt_size     <= gzip_last_symbol ? sdht_valid_bits + slength_valid_bits + 3'd7 : sdht_valid_bits + slength_valid_bits;					
+				lz77_filt_data     <= gzip_last_symbol ? (slength_data_out << (sdht_valid_bits + 7)) | sdht_data_merged << 7 | slit_i0_data :
+				                                         (slength_data_out << sdht_valid_bits      ) | sdht_data_merged;
+				 
+				next_state <= next_state_decoder;
+			
+			end  
+            
+		    default : next_state <= IDLE;
+			
+        endcase
+    end	
+	
+	
+endmodule
