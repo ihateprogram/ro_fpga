@@ -24,6 +24,7 @@ module lz77_match_filter
     input gzip_last_symbol,
 	
     // Module outputs 
+	output reg [2 :0] lz77_filt_pad_bits, // after all data is written in the output module then the control state machine should pad with zeros until byte boundary
     output reg        lz77_filt_valid,  
     //output reg        lz77_filt_last,
     output reg [5 :0] lz77_filt_size,     // maximum length can be 32 bits
@@ -31,11 +32,12 @@ module lz77_match_filter
     );
 
 	// Module parameters
-	localparam [4:0] IDLE              = 5'b00001,
-	                MATCH_LENGTH0      = 5'b00010,
-	                MATCH_LENGTH1      = 5'b00100,
-	                MATCH_LENGTH2      = 5'b01000,
-                    MATCH_LENGTH3      = 5'b10000;
+	localparam [4:0] IDLE          = 6'b000001,
+	                 MATCH_LENGTH0 = 6'b000010,
+	                 MATCH_LENGTH1 = 6'b000100,
+	                 MATCH_LENGTH2 = 6'b001000,
+                     MATCH_LENGTH3 = 6'b010000,
+                     MATCH_EOF     = 6'b100000;
 					
     localparam MATCH_POS_ZEROS = 16 - DICTIONARY_DEPTH_LOG;
     localparam MATCH_LEN_ZEROS = 9 - CNT_WIDTH;
@@ -49,7 +51,7 @@ module lz77_match_filter
 	reg [DICTIONARY_DEPTH_LOG-1:0] match_position_buff0; 
 	reg [CNT_WIDTH-1:0]            match_length_buff0;
 	reg [DATA_WIDTH-1:0]           next_symbol_buff0, next_symbol_buff1, next_symbol_buff2;
-    reg [4:0] state, next_state, next_state_decoder;
+    reg [5:0] state, next_state, next_state_decoder;
 	//reg [1:0] cnt_states, cnt_states_next;
 	reg output_enable;
 	 
@@ -59,6 +61,9 @@ module lz77_match_filter
 	reg [3:0] sliteral_valid_bits_buff2;
 	
 	reg gzip_last_symbol_buff;
+	reg output_enable_in_buff;
+	reg match_length_eq3_with_string;
+	
 	
 	wire [4:0] sliteral_valid_bits_sum; 
 	
@@ -66,6 +71,7 @@ module lz77_match_filter
 	wire match_length_eq0;
 	wire match_length_eq1;
 	wire match_length_eq2;
+	wire match_length_eq3;
 	
 	//wire  [8:0] sliteral_in,                    // 9bits 
 	//input  literal_valid_in,                    // literal_valid_in is used to enable the conversion of the lengths
@@ -87,6 +93,7 @@ module lz77_match_filter
 	assign match_length_eq0     = (match_length == 0);
     assign match_length_eq1     = (match_length == 1);
     assign match_length_eq2     = (match_length == 2);
+    assign match_length_eq3     = ~(match_length_eq0 | match_length_eq1 | match_length_eq2);  // you are in the 3'rd state if 0, 1 and 2 are inactive
 
 
 	//====================================================================================================================
@@ -94,13 +101,13 @@ module lz77_match_filter
 	//====================================================================================================================
 
     //========================= Huffman static literals tree =========================
-    sliteral slit_i0
+    sliteral sliteral_i0
     (
     // Module inputs
     .clk,	
     .rst_n,	
 	.literal_in         ( next_symbol      ),  // 9bits
-	.literal_valid_in   ( 1'b1             ),  // literal_valid_in is used to enable the conversion of the lengths. always enabled to have the past two values calculated if needed
+	//.literal_valid_in   ( 1'b1             ),  // literal_valid_in is used to enable the conversion of the lengths. always enabled to have the past two values calculated if needed
     .gzip_last_symbol,	
 	
     // Module outputs
@@ -135,9 +142,11 @@ module lz77_match_filter
 	begin
 	    if(!rst_n) begin                           
 		    gzip_last_symbol_buff <= 0;
+			output_enable_in_buff <= 0;
 		end
 		else begin
 		    gzip_last_symbol_buff <= gzip_last_symbol;
+			output_enable_in_buff <= output_enable_in;
 		end
 	end		
 	
@@ -172,6 +181,18 @@ module lz77_match_filter
     .sdht_valid_bits                       // this output says how many binary encoded bits are valid from the output of the decoder 
     );	
 	
+	//========================= Flip-Flops used to buffer internal logic  =========================
+	// This flop is set only when we have a MATCH_LENGTH3 state and the output_en was set 
+    always @(posedge clk or negedge rst_n)
+	begin
+	    if(!rst_n)                          
+		    match_length_eq3_with_string <= 0;
+		else if ((state == MATCH_LENGTH3) && output_enable_in_buff)
+		    match_length_eq3_with_string <= 1;
+        else if (state == IDLE || state == MATCH_LENGTH0)                            
+            match_length_eq3_with_string <= 0;
+	end	
+
 	
 	//====================================================================================================================
 	//============================================ State machine sequencing ==============================================
@@ -195,7 +216,14 @@ module lz77_match_filter
 	// Combinational next_state decoder
 	always @(*)
 	begin
-		if ( output_enable_in | gzip_last_symbol ) begin
+		//if (output_enable_in | gzip_last_symbol) begin
+		if (gzip_last_symbol) begin
+		    if      (match_length_eq1) next_state_decoder <= MATCH_LENGTH1;  // this is used for the case when the text ends with a match of 1 or 2 and 7'b0 has to be appended
+		    else if (match_length_eq2) next_state_decoder <= MATCH_LENGTH2;
+		    else if (match_length_eq3) next_state_decoder <= MATCH_LENGTH3;
+		    else                       next_state_decoder <= MATCH_EOF;
+		end
+		else if (output_enable_in) begin
 		        if      (match_length_eq0) next_state_decoder <= MATCH_LENGTH0;
 		        else if (match_length_eq1) next_state_decoder <= MATCH_LENGTH1; 
 		        else if (match_length_eq2) next_state_decoder <= MATCH_LENGTH2; 
@@ -220,16 +248,17 @@ module lz77_match_filter
 		    IDLE          : begin	
 
 			    `ifdef REMOVE_ME text_lz77_filter <="IDLE"; `endif
-                next_state <= next_state_decoder;
-	
+	            next_state <= next_state_decoder;
+				
 			end
 			
             MATCH_LENGTH0 : begin                    // This treats the case when a character is new in the dictionary
 			
 			    `ifdef REMOVE_ME text_lz77_filter <="MATCH_LENGTH0"; `endif
 				lz77_filt_valid    <= 1;
-                lz77_filt_size     <= slit_i0_valid_bits;
-				lz77_filt_data     <= slit_i0_data;
+				
+				lz77_filt_size     <= match_length_eq3_with_string ? slit_i0_valid_bits + sliteral_valid_bits_buff1             : slit_i0_valid_bits;
+				lz77_filt_data     <= match_length_eq3_with_string ? (sliteral_data_buff1 << slit_i0_valid_bits) | slit_i0_data : slit_i0_data;				
 				
 				next_state         <= next_state_decoder;
 				
@@ -240,9 +269,9 @@ module lz77_match_filter
 				`ifdef REMOVE_ME text_lz77_filter <="MATCH_LENGTH1"; `endif
 				lz77_filt_valid    <= 1;
                 lz77_filt_size     <= slit_i0_valid_bits + sliteral_valid_bits_buff1;								
-				lz77_filt_data     <= ( sliteral_data_buff1 << slit_i0_valid_bits) | slit_i0_data;		
+				lz77_filt_data     <= (sliteral_data_buff1 << slit_i0_valid_bits) | slit_i0_data;		
 				
-				next_state <= next_state_decoder;
+				next_state         <= next_state_decoder;
 				
 			end
 			
@@ -264,18 +293,44 @@ module lz77_match_filter
 			                                        // length is drawn from (3..258) and the distance is drawn from (1 ... 32,768)
 				`ifdef REMOVE_ME text_lz77_filter <="MATCH_LENGTH3"; `endif									 
                 lz77_filt_valid    <= 1;
-                lz77_filt_size     <= gzip_last_symbol ? sdht_valid_bits + slength_valid_bits + 3'd7 : sdht_valid_bits + slength_valid_bits;					
-				lz77_filt_data     <= gzip_last_symbol ? (slength_data_out << (sdht_valid_bits + 7)) | sdht_data_merged << 7 | slit_i0_data :
-				                                         (slength_data_out << sdht_valid_bits      ) | sdht_data_merged;
-				 
-				next_state <= next_state_decoder;
-			
+                /*lz77_filt_size     <= gzip_last_symbol_buff ? sdht_valid_bits + slength_valid_bits + 3'd7 : sdht_valid_bits + slength_valid_bits;					
+				lz77_filt_data     <= gzip_last_symbol_buff ? (slength_data_out << (sdht_valid_bits + 7)) | sdht_data_merged << 7 | slit_i0_data :
+				                                              (slength_data_out << sdht_valid_bits      ) | sdht_data_merged; */
+
+	            lz77_filt_size     <= sdht_valid_bits + slength_valid_bits;					
+				lz77_filt_data     <= (slength_data_out << sdht_valid_bits) | sdht_data_merged;													  
+
+				if (gzip_last_symbol_buff) 
+				    next_state <= MATCH_EOF;
+			    else
+				    next_state <= next_state_decoder;
+			    
 			end  
+
+            MATCH_EOF : begin                    // This treats the case when the EOF character has to be inserted (EOF = 256 or 7'b0 Huffman code) 
+			
+			    `ifdef REMOVE_ME text_lz77_filter <="MATCH_EOF"; `endif
+				lz77_filt_valid    <= 1;
+                lz77_filt_size     <= match_length_eq3_with_string ? sliteral_valid_bits_buff1 + 7             : 7;
+				lz77_filt_data     <= match_length_eq3_with_string ? (sliteral_data_buff1 << 7) | slit_i0_data : 7'b0;
+				
+				next_state         <= IDLE;
+				
+			end
             
 		    default : next_state <= IDLE;
 			
         endcase
     end	
+	
+	    
+	// This is used to count the remainder of all lz77_filt_size during the compression process
+	always @(posedge clk or negedge rst_n)
+	begin
+	    if (!rst_n)               lz77_filt_pad_bits <= 0;
+	    else if (lz77_filt_valid) lz77_filt_pad_bits <= lz77_filt_pad_bits + lz77_filt_size[2:0];
+	end
+
 	
 	
 endmodule

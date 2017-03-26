@@ -275,7 +275,8 @@ module sliteral_test();
  
     reg  [7:0] literal_in;
 	reg  literal_valid_in;
-		
+	reg  gzip_last_symbol;
+	
     wire        sliteral_valid_out;
     wire [8:0]  sliteral_data; 
     wire [3:0]  sliteral_valid_bits; 
@@ -296,10 +297,9 @@ module sliteral_test();
     .clk,	
     .rst_n,	
 	.literal_in,                          // 9bits 
-	.literal_valid_in,                    // literal_valid_in is used to enable the conversion of the lengths
+	.gzip_last_symbol,
 	
     // Module outputs
-	.sliteral_valid_out,
 	.sliteral_data,                       // 9 bits Huffman
     .sliteral_valid_bits                  // this output says how many binary encoded bits are valid from the output of the decoder 
     );
@@ -310,6 +310,7 @@ module sliteral_test();
         $display($time, "<< Starting the Simulation >>");
 	    literal_in = 0;
 		literal_valid_in = 0;
+		gzip_last_symbol = 0;
 	    clk = 0;
 	    rst_n = 0;
         repeat(15) @(posedge clk);
@@ -888,11 +889,9 @@ module sliteral_test();
     task load_data_task;
 	    input  [7:0]  match_pos_in_val;
     begin	
-	    literal_valid_in = 1;
         literal_in = match_pos_in_val;
 		$display($time, " Loading literal_in = %d", literal_in);
-        @(posedge clk); 
-        literal_valid_in = 0;
+        @(posedge clk);
         //@(posedge clk); 		
     end
     endtask //of load_data	
@@ -904,17 +903,17 @@ module sliteral_test();
 	    //@(posedge clk);                                 // wait for the module to update its outpus
 		#1;
             test_count <= test_count + 1;
-    	if( ({sliteral_data_exp, sliteral_valid_bits_exp} == {sliteral_data, sliteral_valid_bits}) && sliteral_valid_out==1) begin
+    	if( ({sliteral_data_exp, sliteral_valid_bits_exp} == {sliteral_data, sliteral_valid_bits}) ) begin
     	    success_count <= success_count + 1; 
 			$display($time,"Success at test %d",test_count);
-			$display("            Static length SL=%b, valid_bits=%d,  slength_data_valid_out=%b", sliteral_data, sliteral_valid_bits, sliteral_valid_out);
+			$display("            Static length SL=%b, valid_bits=%d", sliteral_data, sliteral_valid_bits);
     		end
         else begin
             error_count	<= error_count + 1;
 			$display($time,"Error at test %d \n",test_count);
-			$display("            Observed: literal SL=%b, valid_bits=%d\n        Expected: length SD=%b, valid_bits=%d \n sliteral_valid_out = %b" 
+			$display("            Observed: literal SL=%b, valid_bits=%d\n        Expected: length SD=%b, valid_bits=%d \n " 
 			                                                                                                            ,sliteral_data, sliteral_valid_bits
-			                                                                                                            ,sliteral_data_exp, sliteral_valid_bits_exp, sliteral_valid_out);
+			                                                                                                            ,sliteral_data_exp, sliteral_valid_bits_exp);
     		end
         end
     endtask

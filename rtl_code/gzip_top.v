@@ -53,8 +53,9 @@ Description:   This top module contains control logic for the LZ77 module in ord
 `define LOAD_BYTE2        8'd5
 `define LOAD_BYTE3        8'd6
 `define END_OF_BLOCK      8'd7
-`define CRC32             8'd8
-`define ISIZE             8'd9
+`define PAD_WITH_ZEROS    8'd8
+`define CRC32             8'd9
+`define ISIZE             8'd10
 
 `define REMOVE_ME
 
@@ -169,11 +170,13 @@ module gzip_top
 	wire state_end_of_block;
 	wire state_block_len;
 	wire state_idle;
+    wire state_pad_zeros;
 	//wire state_load_byte;
 	wire next_state_load_byte0;
 	wire next_state_load_byte1;
 	wire next_state_load_byte2;
 	wire next_state_load_byte3;
+
 	
 	wire [31:0] crc32_out;
 	wire [31:0] gzip_data_out;
@@ -189,6 +192,7 @@ module gzip_top
     //wire        lz77_filt_last,
     wire [5 :0] lz77_filt_size;     // maximum length can be 32 bits
 	wire [31:0] lz77_filt_data;      // 32 bits of data
+	wire [ 2:0] lz77_filt_pad_bits;
 	
 	wire end_block_cnt_max;
 	wire [31:0] dout_out_fifo_32_mixed;
@@ -276,8 +280,8 @@ module gzip_top
                             `ifdef REMOVE_ME text_gzip_top <="BLOCK_LEN"; `endif 
 								word_merge_in_valid   <= 1;
 								word_merge_in_size    <= 6'd32;
-								//word_merge_in_data    <= word_swap_bytes({block_size[15:0], ~block_size[15:0]});
-								word_merge_in_data    <= {~block_size[7:0], ~block_size[15:8], block_size[7:0], block_size[15:8]};								
+								word_merge_in_data    <= {block_size[7:0], block_size[15:8], ~block_size[7:0], ~block_size[15:8]};
+								//word_merge_in_data    <= {~block_size[7:0], ~block_size[15:8], block_size[7:0], block_size[15:8]};								
 							
     						    if (!empty_in_fifo) begin                       
     						        next_state    <= `LOAD_BYTE0 ;        // if we got more data in the FIFO we can go and transmit another 32 bytes
@@ -387,26 +391,34 @@ module gzip_top
 							if (bfinal && btype_no_compression)         next_state <= `CRC32; // if we are at the last data block then we can write the CRC and the ISIZE parameters (only for no compression) 
 							else if (bfinal && btype_fixed_compression) begin
 							    //if (end_block_cnt_max) begin
-							    if (end_block_cnt == 3'd1) begin								
-								
-								//word_merge_in_valid <= 1;
-							    //word_merge_in_size  <= 6'd7;             // Write the Huffman code for the EOF character in the output stream
-							    //word_merge_in_data  <= 7'b0;   
+							    if (end_block_cnt == 3'd1) begin
 								   gzip_last_symbol    <= 1;
 								   next_state          <= `END_OF_BLOCK;
 								end 
-								else if (end_block_cnt_max) next_state <= `CRC32; 
+								else if (end_block_cnt_max) next_state <= `PAD_WITH_ZEROS;
 								else                        next_state <= `END_OF_BLOCK;
 						    end
                         end		
 
+			`PAD_WITH_ZEROS : begin  // We pad with zeros to byte boundry only if lz77_filt_pad_bits > 0
+			                
+							if (lz77_filt_pad_bits) begin
+							   word_merge_in_valid <= 1;
+							   word_merge_in_size  <= 8 - lz77_filt_pad_bits;
+							   word_merge_in_data  <= 32'b0;
+							end 
+							
+							next_state <= `CRC32;
+			  
+			            end 
+			
 			`CRC32      : begin
                             `ifdef REMOVE_ME text_gzip_top <= "CRC32" ; `endif
 							
 							word_merge_in_valid <= 1;
 							word_merge_in_size  <= 6'd32;
-							//word_merge_in_data  <= word_swap_bytes(crc32_out);	
-							word_merge_in_data  <= {crc32_out[7:0], crc32_out[15:8], crc32_out[23:16], crc32_out[31:24]}; 	
+							word_merge_in_data  <= crc32_out;	
+							//word_merge_in_data  <= {crc32_out[7:0], crc32_out[15:8], crc32_out[23:16], crc32_out[31:24]}; 	
 							
                             next_state          <= `ISIZE;
 			            end
@@ -419,8 +431,8 @@ module gzip_top
 							    word_merge_in_last    <= 1;
 							    word_merge_in_valid   <= 1;
 							    word_merge_in_size    <= 6'd32;
-							    //word_merge_in_data    <= word_swap_bytes(isize);	
-							    word_merge_in_data    <= {isize[7:0], isize[15:8], isize[23:16], isize[31:24]};	
+							    word_merge_in_data    <= isize;	
+							    //word_merge_in_data    <= {isize[7:0], isize[15:8], isize[23:16], isize[31:24]};	
 
                                 next_state <= `ISIZE;									
 							end
@@ -431,7 +443,7 @@ module gzip_top
     end
 	
 	// This counter is used to stay in the END_OF_BLOCK state for 6 clock cycles before writing the CRC in the output FIFO
-	assign end_block_cnt_max = (end_block_cnt == 3'd6);
+	assign end_block_cnt_max = (end_block_cnt == 3'd7);
 	
 	always @(posedge clk or negedge rst_n)
 	begin
@@ -454,6 +466,7 @@ module gzip_top
 	assign state_end_of_block      = (state == `END_OF_BLOCK);	
 	assign state_crc32             = (state == `CRC32);
     assign state_isize             = (state == `ISIZE);
+	assign state_pad_zeros         = (state == `PAD_WITH_ZEROS);
 	
 	assign next_state_load_byte0   = (next_state == `LOAD_BYTE0);
 	assign next_state_load_byte1   = (next_state == `LOAD_BYTE1);
@@ -719,6 +732,7 @@ module gzip_top
         .gzip_last_symbol(gzip_last_symbol_buf1),		
 		
         // Module outputs
+		.lz77_filt_pad_bits,
         .lz77_filt_valid,
         .lz77_filt_size,
 	    .lz77_filt_data 
@@ -735,12 +749,12 @@ module gzip_top
 	begin
 	    if (btype_fixed_compression) begin
 	        //in_valid <= (state_crc32 || state_isize || (state_end_of_block && end_block_cnt_max)) ? word_merge_in_valid : lz77_filt_valid ;  // In the FIXED_COMPRESSION mode the state machine must be able to write the CRC and ISIZE at the end of a block
-	        in_valid <= (state_crc32 || state_isize) ? word_merge_in_valid : lz77_filt_valid ;  // In the FIXED_COMPRESSION mode the state machine must be able to write the CRC and ISIZE at the end of a block
-		    in_last  <= word_merge_in_last ;
+	        in_valid <= (state_crc32 || state_isize || state_pad_zeros) ? word_merge_in_valid : lz77_filt_valid ;  // In the FIXED_COMPRESSION mode the state machine must be able to write the CRC and ISIZE at the end of a block
+		    in_last  <= word_merge_in_last;
 		    //in_size  <= (state_crc32 || state_isize || (state_end_of_block && end_block_cnt_max)) ? word_merge_in_size  : lz77_filt_size ;
-		    in_size  <= (state_crc32 || state_isize) ? word_merge_in_size  : lz77_filt_size ;
+		    in_size  <= (state_crc32 || state_isize || state_pad_zeros) ? word_merge_in_size  : lz77_filt_size ;
 	        //in_data  <= (state_crc32 || state_isize || (state_end_of_block && end_block_cnt_max)) ? word_merge_in_data  : lz77_filt_data ;
-	        in_data  <= (state_crc32 || state_isize) ? word_merge_in_data  : lz77_filt_data ;
+	        in_data  <= (state_crc32 || state_isize || state_pad_zeros) ? word_merge_in_data  : lz77_filt_data ;
 	    end
 	    else begin
 	        in_valid <= word_merge_in_valid;
