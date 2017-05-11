@@ -21,10 +21,10 @@ Description:   Using this module the LZ77 encoder calculates the maximum length 
 module lz77_encoder
     #( 
      	parameter DATA_WIDTH = 8,
-        parameter DICTIONARY_DEPTH = 16,
-		parameter DICTIONARY_DEPTH_LOG = 4,
-		parameter LOOK_AHEAD_BUFF_DEPTH = 8,
-		parameter CNT_WIDTH = 3     // The counter size must be changed according to the maximum match length
+        parameter DICTIONARY_DEPTH = 2048,
+		parameter DICTIONARY_DEPTH_LOG = 11,
+		parameter LOOK_AHEAD_BUFF_DEPTH = 66,
+		parameter CNT_WIDTH = 7     // The counter size must be changed according to the maximum match length
 	 )
     (
     // Module inputs

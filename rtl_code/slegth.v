@@ -40,6 +40,7 @@
 `define LEN_CODE286	8'd198
 `define LEN_CODE287	8'd199
 
+
 module slength
     (
     // Module inputs

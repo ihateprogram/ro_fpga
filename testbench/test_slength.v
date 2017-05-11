@@ -90,6 +90,18 @@ module slength_test();
         $display($time, "**************************  SLENGTH TEST  **************************");
         repeat(5) @(posedge clk);
 	
+		// 257 ... 279 -- length 7 bit value
+		// 1   ... 23
+		/*for (i = 257; i <= 279; i = i +1) begin
+    	  	$display ("`define LIT_CODE%d = 7'd%d", i, i-256);
+    	end*/
+
+		// 280 ... 287 -- length 8 bit value
+		// 168 ... 175
+		/*for (i = 280; i <= 287; i = i +1) begin
+    	  	$display ("`define LIT_CODE%d = 8'd%d", i, i-112);
+    	end*/
+		
         // Valiues 0, 1 and 2 should be decoded with the default values
         load_data_task(9'd0);
         validate_slength_data({6'b0,`LEN_CODE257}, 4'd7);

@@ -57,15 +57,15 @@ Description:   This top module contains control logic for the LZ77 module in ord
 `define CRC32             8'd9
 `define ISIZE             8'd10
 
-`define REMOVE_ME
+//`define REMOVE_ME
 
 `define NO_COMRESSION      2'b00
 `define FIXED_HUFFMAN      2'b01
 
 module gzip_top
     #(      	
-        parameter DICTIONARY_DEPTH = 512,	  // the size of the GZIP window -32k
-		parameter DICTIONARY_DEPTH_LOG = 9,
+        parameter DICTIONARY_DEPTH = 1024,	  // the size of the GZIP window -32k
+		parameter DICTIONARY_DEPTH_LOG = 10,
 	    parameter LOOK_AHEAD_BUFF_DEPTH = 66,     // the max length of the GZIP match
 		parameter CNT_WIDTH = 7                   // The counter size must be changed according to the maximum match length			
 	)
@@ -271,17 +271,18 @@ module gzip_top
 								
 							    word_merge_in_valid   <= 1;
 								word_merge_in_size    <= btype_no_compression ? 6'd8 : 6'd3; // For blocks in STORED mode (BTYPE==00) you have to go to a byte boundary
-								word_merge_in_data    <= {29'b0, btype[1:0], dout_in_fifo_32[0]}; // BTYPE, BFINAL - are the first 3 bits in a block
+								//word_merge_in_size    <= 6'd8; // For blocks in STORED mode (BTYPE==00) you have to go to a byte boundary
+								word_merge_in_data    <= {29'b0, btype[1:0], dout_in_fifo_32[0]}; // BTYPE, BFINAL - are the first 3 bits in a block						
 								
-								next_state            <= `BLOCK_LEN;
+								next_state            <= `BLOCK_LEN;    // FIXME add code to replace BLOCK_LEN state for compressed mode (unnecessary transition)
                             end
 			
 			`BLOCK_LEN  :  begin
                             `ifdef REMOVE_ME text_gzip_top <="BLOCK_LEN"; `endif 
 								word_merge_in_valid   <= 1;
 								word_merge_in_size    <= 6'd32;
-								word_merge_in_data    <= {block_size[7:0], block_size[15:8], ~block_size[7:0], ~block_size[15:8]};
-								//word_merge_in_data    <= {~block_size[7:0], ~block_size[15:8], block_size[7:0], block_size[15:8]};								
+								//word_merge_in_data    <= {block_size[7:0], block_size[15:8], ~block_size[7:0], ~block_size[15:8]};
+								word_merge_in_data    <= {~block_size[15:0], block_size[15:0]};							
 							
     						    if (!empty_in_fifo) begin                       
     						        next_state    <= `LOAD_BYTE0 ;        // if we got more data in the FIFO we can go and transmit another 32 bytes
@@ -401,7 +402,7 @@ module gzip_top
                         end		
 
 			`PAD_WITH_ZEROS : begin  // We pad with zeros to byte boundry only if lz77_filt_pad_bits > 0
-			                
+			                `ifdef REMOVE_ME text_gzip_top <="PAD_WITH_ZEROS"; `endif
 							if (lz77_filt_pad_bits) begin
 							   word_merge_in_valid <= 1;
 							   word_merge_in_size  <= 8 - lz77_filt_pad_bits;
@@ -460,7 +461,7 @@ module gzip_top
 	//====================================================================================================================	
 	// These state decoders are used un several areas in the design
 	assign state_idle              = (state == `IDLE);
-	assign state_get_block_header  = (state == `START_OF_BLOCK);
+	assign state_get_block_header  = (state == `START_OF_BLOCK);      // FIXME remove duplicated decoder
 	assign state_block_len         = (state == `BLOCK_LEN);
 	assign state_start_block       = (state == `START_OF_BLOCK);
 	assign state_end_of_block      = (state == `END_OF_BLOCK);	
@@ -492,7 +493,7 @@ module gzip_top
 		    block_header_received <= 1'b0;          
     end		
 	
-	// Extract the BFINAL and block_size for the incomind data stream
+	// Extract the BFINAL and block_size for the incoming data stream
 	// Byte no.     |    3   |    2   |    1   |    0   | 
 	// Bit no.      |76543210|76543210|76543210|76543210|                     
 	//              |xxxxxxxF|xxxxxxxx  BLOCK_LEN[15:0] |
@@ -743,18 +744,18 @@ module gzip_top
     //====================================================================================================================	
 	//========================================== Instantiate word_merge module ===========================================
 	//====================================================================================================================
-    // This module gets data either from the LZ77 encoder or from the control state machine and packs it into 32 bit chunks.
 	
+    // This module gets data either from the LZ77 encoder or from the control state machine and packs it into 32 bit chunks.
 	always @(*)
 	begin
 	    if (btype_fixed_compression) begin
 	        //in_valid <= (state_crc32 || state_isize || (state_end_of_block && end_block_cnt_max)) ? word_merge_in_valid : lz77_filt_valid ;  // In the FIXED_COMPRESSION mode the state machine must be able to write the CRC and ISIZE at the end of a block
-	        in_valid <= (state_crc32 || state_isize || state_pad_zeros) ? word_merge_in_valid : lz77_filt_valid ;  // In the FIXED_COMPRESSION mode the state machine must be able to write the CRC and ISIZE at the end of a block
+	        in_valid <= (state_crc32 || state_isize || state_pad_zeros || state_get_block_header) ? word_merge_in_valid : lz77_filt_valid ;  // In the FIXED_COMPRESSION mode the state machine must be able to write the CRC and ISIZE at the end of a block
 		    in_last  <= word_merge_in_last;
 		    //in_size  <= (state_crc32 || state_isize || (state_end_of_block && end_block_cnt_max)) ? word_merge_in_size  : lz77_filt_size ;
-		    in_size  <= (state_crc32 || state_isize || state_pad_zeros) ? word_merge_in_size  : lz77_filt_size ;
+		    in_size  <= (state_crc32 || state_isize || state_pad_zeros || state_get_block_header) ? word_merge_in_size  : lz77_filt_size ;
 	        //in_data  <= (state_crc32 || state_isize || (state_end_of_block && end_block_cnt_max)) ? word_merge_in_data  : lz77_filt_data ;
-	        in_data  <= (state_crc32 || state_isize || state_pad_zeros) ? word_merge_in_data  : lz77_filt_data ;
+	        in_data  <= (state_crc32 || state_isize || state_pad_zeros || state_get_block_header) ? word_merge_in_data  : lz77_filt_data ;
 	    end
 	    else begin
 	        in_valid <= word_merge_in_valid;

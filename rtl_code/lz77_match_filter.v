@@ -5,7 +5,7 @@
 
 `define MAX_LENGTH 9'd258
 
-`define REMOVE_ME
+//`define REMOVE_ME
 
 module lz77_match_filter
     #( 
@@ -291,7 +291,7 @@ module lz77_match_filter
 			
 			MATCH_LENGTH3 : begin                   // If more than 3 characters are found to match then a <length, backward distance> pair is output, 
 			                                        // length is drawn from (3..258) and the distance is drawn from (1 ... 32,768)
-				`ifdef REMOVE_ME text_lz77_filter <="MATCH_LENGTH3"; `endif									 
+				`ifdef REMOVE_ME text_lz77_filter <= "MATCH_LENGTH3"; `endif									 
                 lz77_filt_valid    <= 1;
                 /*lz77_filt_size     <= gzip_last_symbol_buff ? sdht_valid_bits + slength_valid_bits + 3'd7 : sdht_valid_bits + slength_valid_bits;					
 				lz77_filt_data     <= gzip_last_symbol_buff ? (slength_data_out << (sdht_valid_bits + 7)) | sdht_data_merged << 7 | slit_i0_data :
@@ -309,7 +309,7 @@ module lz77_match_filter
 
             MATCH_EOF : begin                    // This treats the case when the EOF character has to be inserted (EOF = 256 or 7'b0 Huffman code) 
 			
-			    `ifdef REMOVE_ME text_lz77_filter <="MATCH_EOF"; `endif
+			    `ifdef REMOVE_ME text_lz77_filter <= "MATCH_EOF"; `endif
 				lz77_filt_valid    <= 1;
                 lz77_filt_size     <= match_length_eq3_with_string ? sliteral_valid_bits_buff1 + 7             : 7;
 				lz77_filt_data     <= match_length_eq3_with_string ? (sliteral_data_buff1 << 7) | slit_i0_data : 7'b0;
@@ -327,7 +327,7 @@ module lz77_match_filter
 	// This is used to count the remainder of all lz77_filt_size during the compression process
 	always @(posedge clk or negedge rst_n)
 	begin
-	    if (!rst_n)               lz77_filt_pad_bits <= 0;
+	    if (!rst_n)               lz77_filt_pad_bits <= 3'd3;      // the reset valuie is 3 because of the 3 bits of BTYPE, BFINAL which are not aligned to a byte boundary
 	    else if (lz77_filt_valid) lz77_filt_pad_bits <= lz77_filt_pad_bits + lz77_filt_size[2:0];
 	end
 

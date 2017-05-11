@@ -231,10 +231,10 @@ module test_gzip_compress();
 		    feed_input_fifo({"g","h","a","b"});
 		    feed_input_fifo({"x",8'd0,8'd0,8'd0}); */
 
-		    feed_input_fifo({{7'b0,`BFINAL1}, 24'd67});          // BFINAL=1, BTYPE=FIXED_HUFFMAN, LENGTH=3 bytes
-		    for (i=0; i<16; i=i+1)
-			   feed_input_fifo({"a", "a", "a", "a"});
-			feed_input_fifo({"a", "b", "a", "a"});
+		    feed_input_fifo({{7'b0,`BFINAL1}, 24'd4});          // BFINAL=1, BTYPE=FIXED_HUFFMAN, LENGTH=3 bytes
+		    //for (i=0; i<16; i=i+1)
+			   feed_input_fifo({"a", "b", "c", "d"});
+			//feed_input_fifo({"a", "b", "a", "a"});
 		    //feed_input_fifo({"a", "1", "9", " "});
             
 		    repeat(50) @(posedge clk);
