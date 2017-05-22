@@ -1,0 +1,15 @@
+TO DO LIST:    10.10.2016
+
+            Item                                                                                  status 
+1) Comportamentul codorului la caracterul NULL.                                                   Fac la final dupa ce am FIFO                
+2) Comportamentul codorului cand se atinge lungimea maxima a counterului                          Facut
+3) Nivel de pipeline intre blocuri                                                                Facut
+4) Un top care are si filtrul si care trateaza si semnalul de inhibit_tx                          In lucru
+
+5) Fac topul de GZIP in testbench pentru inceput                                                  facut, dar cred ca nu va mai fi nevoie                     
+   trebuie un semnal care face inhibit la semnalul de data_valid atunci cand inhibit_tx este 1
+6) Fac proiectul de demo de la xillybus sa vad ca pot genera FIFO_32-urile                        facut
+7) Fac tabelele de substitutie pentru Huffmann
+8) Conectez Word-merge-ul la modulele de hufmann de iesire
+9) Fac un test cu scriere in FIFO-ul de intrare si expected in FIFO-ul de iesire                  facut pentru fifo-ul de intrare
+10) testbench care valideaza automat toate caractele care ies din codorul de LZ77                 facut             
