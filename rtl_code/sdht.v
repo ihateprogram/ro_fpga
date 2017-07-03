@@ -60,7 +60,7 @@ module sdht
     // Module outputs
     //output reg [4 :0]  sdht_dist,        // 5 bit distance huffman code
 	//output reg         sdht_data_valid_out,
-	output reg [17:0]  sdht_data_merged,   // 18 bits { <5bit Huffman>, 13 bit binary code}
+	output  [17:0]  sdht_data_merged,   // 18 bits { <5bit Huffman>, 13 bit binary code}
     output     [4 :0]  sdht_valid_bits     // this output says how many binary encoded bits are valid from the output of the decoder 
     );
 	
@@ -68,12 +68,15 @@ module sdht
 	reg [DICTIONARY_DEPTH_LOG-1:0] sdht_extra_bits_val;     // 16 bits extra value binary encoded - only 13 bits are used because of the distance ranges
 	reg [3 :0]  sdht_extra_bits_no;                         // number of extra binary bits used for address encoding
 	reg [4 :0]  sdht_dist;
-	reg [4 :0]  sdht_dist_buff;
+	//reg [4 :0]  sdht_dist_buff;
 
-	reg [DICTIONARY_DEPTH_LOG-1:0] sdht_extra_bits_val_buff;     // 16 bits extra value binary encoded - only 13 bits are used because of the distance ranges
-	reg [3 :0]  sdht_extra_bits_no_buff;                         // number of extra binary bits used for address encoding
+	//reg [DICTIONARY_DEPTH_LOG-1:0] sdht_extra_bits_val_buff;     // 16 bits extra value binary encoded - only 13 bits are used because of the distance ranges
+	//reg [3 :0]  sdht_extra_bits_no_buff;                         // number of extra binary bits used for address encoding
 	//reg [4 :0]  sdht_dist_buff;	
 	
+	reg [17:0]  sdht_data_merged_buff;                      // this buffer is used to reverse bits inside from the distance vector
+	
+	wire [17:0]  sdht_data_merged_rev;
 	
     //====================================================================================================================	
 	//================================= Create Huffman codes LUT for input distances =====================================
@@ -318,9 +321,20 @@ module sdht
 	// The 13 bits of 0 are used to pad the unused bits from the total bit vector
 	always @(*)
 	begin
-	    //sdht_data_merged <= (18'b0 << sdht_valid_bits) | (sdht_dist_buff << sdht_extra_bits_no_buff) | sdht_extra_bits_val_buff;	
-	    sdht_data_merged <= (18'b0 << sdht_valid_bits) | (sdht_dist << sdht_extra_bits_no) | sdht_extra_bits_val;	
+	    //sdht_data_merged <= (18'b0 << sdht_valid_bits) | (sdht_dist_buff << sdht_extra_bits_no_buff) | sdht_extra_bits_val_buff;	-- obsolete
+	    //sdht_data_merged <= (18'b0 << sdht_valid_bits) | (sdht_dist << sdht_extra_bits_no) | sdht_extra_bits_val;	
+	    //sdht_data_merged_buff <= (18'b0 << sdht_valid_bits) | (sdht_dist << sdht_extra_bits_no) | sdht_extra_bits_val;	
+	    sdht_data_merged_buff <= (sdht_dist << sdht_extra_bits_no) | sdht_extra_bits_val;
 	end
 	
+	// Reverse all 13 bits
+	assign sdht_data_merged_rev[17:0] = {sdht_data_merged_buff[0] , sdht_data_merged_buff[1] , sdht_data_merged_buff[2] , sdht_data_merged_buff[3] , 
+	                                     sdht_data_merged_buff[4] , sdht_data_merged_buff[5] , sdht_data_merged_buff[6] , sdht_data_merged_buff[7] ,
+									     sdht_data_merged_buff[8] , sdht_data_merged_buff[9] , sdht_data_merged_buff[10], sdht_data_merged_buff[11],
+									     sdht_data_merged_buff[12], sdht_data_merged_buff[13], sdht_data_merged_buff[14], sdht_data_merged_buff[15],
+	                                     sdht_data_merged_buff[16], sdht_data_merged_buff[17]};
+									 
+	// Align the bits to the right
+	assign sdht_data_merged = sdht_data_merged_rev >> (5'd18 - sdht_valid_bits);
 	
 endmodule

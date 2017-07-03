@@ -285,6 +285,8 @@ module sliteral
     );
 	
 	
+	wire [8:0] sliteral_data_reversed;
+	
     //====================================================================================================================	
 	//===================================== Create Huffman codes LUT for literals  =======================================
 	//====================================================================================================================
@@ -573,8 +575,7 @@ module sliteral
 	    //else if (literal_valid_in) sliteral_data <= sliteral_data_lut;       
 	    else                       sliteral_data <= sliteral_data_lut;       
     end	*/
-	
-	assign sliteral_data = sliteral_data_lut;
+
 	
 	// Create the valid signal for downstream blocks
     /*always @( posedge clk or negedge rst_n)
@@ -593,6 +594,12 @@ module sliteral
 		else                                              sliteral_valid_bits <= 0;       // invalid literal inputs don't have any valid bits (Redundant because all input values are covered)
         		
     end
-	
+		
+	// Connect the bits in reverse order and shift them to right
+	assign sliteral_data_reversed[8:0] = {sliteral_data_lut[0], sliteral_data_lut[1], sliteral_data_lut[2], sliteral_data_lut[3],
+	                                      sliteral_data_lut[4], sliteral_data_lut[5], sliteral_data_lut[6], sliteral_data_lut[7], sliteral_data_lut[8]};
+								 
+	// Right shift the result of the sliteral calculation
+	assign sliteral_data[8:0] = sliteral_data_reversed >> (4'd9 - sliteral_valid_bits);
 	
 endmodule

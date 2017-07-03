@@ -258,7 +258,7 @@ module lz77_match_filter
 				lz77_filt_valid    <= 1;
 				
 				lz77_filt_size     <= match_length_eq3_with_string ? slit_i0_valid_bits + sliteral_valid_bits_buff1             : slit_i0_valid_bits;
-				lz77_filt_data     <= match_length_eq3_with_string ? (sliteral_data_buff1 << slit_i0_valid_bits) | slit_i0_data : slit_i0_data;				
+				lz77_filt_data     <= match_length_eq3_with_string ? (sliteral_data_buff1 << slit_i0_valid_bits) | slit_i0_data : slit_i0_data;		
 				
 				next_state         <= next_state_decoder;
 				

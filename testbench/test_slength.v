@@ -28,14 +28,14 @@
 `define LEN_CODE277	7'd21
 `define LEN_CODE278	7'd22
 `define LEN_CODE279	7'd23
-`define LEN_CODE280	8'd192
-`define LEN_CODE281	8'd193
-`define LEN_CODE282	8'd194
-`define LEN_CODE283	8'd195
-`define LEN_CODE284	8'd196
-`define LEN_CODE285	8'd197
-`define LEN_CODE286	8'd198
-`define LEN_CODE287	8'd199
+`define LEN_CODE280 8'd192
+`define LEN_CODE281 8'd193
+`define LEN_CODE282 8'd194
+`define LEN_CODE283 8'd195
+`define LEN_CODE284 8'd196
+`define LEN_CODE285 8'd197
+`define LEN_CODE286 8'd198
+`define LEN_CODE287 8'd199
 
 
 module slength_test();
@@ -49,9 +49,9 @@ module slength_test();
 	reg  match_length_valid_in;             // match_length_valid_in is used to enable the conversion of the lengths
 	
 	wire         slength_valid_out;
-	wire [12:0]  slength_data_merged; 
 	wire [3:0]   slength_valid_bits; 
-	
+	wire [12:0]  slength_data_out;
+	reg [12:0]  slength_data_out_exp_rev;
 		
     integer test_count    = 0;
     integer success_count = 0;
@@ -72,7 +72,7 @@ module slength_test();
 	
     // Module outputs
 	//.slength_valid_out,
-	.slength_data_out(slength_data_merged),           // 13 bits { <7/8bit Huffman>, 5 extra bit binary code}
+	.slength_data_out,           // 13 bits { <7/8bit Huffman>, 5 extra bit binary code}
     .slength_valid_bits                               // this output says how many binary encoded bits are valid from the output of the decoder 
     );
 	
@@ -93,14 +93,14 @@ module slength_test();
 		// 257 ... 279 -- length 7 bit value
 		// 1   ... 23
 		/*for (i = 257; i <= 279; i = i +1) begin
-    	  	$display ("`define LIT_CODE%d = 7'd%d", i, i-256);
+    	  	$display ("`define LEN_CODE%d = 7'd%d", i, i-256);
     	end*/
 
 		// 280 ... 287 -- length 8 bit value
 		// 168 ... 175
-		/*for (i = 280; i <= 287; i = i +1) begin
-    	  	$display ("`define LIT_CODE%d = 8'd%d", i, i-112);
-    	end*/
+		for (i = 280; i <= 287; i = i +1) begin
+    	  	$display ("`define LEN_CODE%d = 8'd%d", i, i+24);
+    	end
 		
         // Valiues 0, 1 and 2 should be decoded with the default values
         load_data_task(9'd0);
@@ -304,7 +304,7 @@ module slength_test();
         load_data_task(9'd279);
         validate_slength_data({6'b0,`LEN_CODE257}, 4'd8);		
         load_data_task(9'd479);
-        validate_slength_data({6'b0,`LEN_CODE257}, 4'd8);
+        validate_slength_data({6'b0,`LEN_CODE257}, 4'd8); 
 //`endif
 		
 		repeat(10) @(posedge clk);
@@ -334,23 +334,30 @@ module slength_test();
     endtask //of load_data	
 	
     task validate_slength_data();
-    input [12:0]  slength_data_merged_exp;
+    input [12:0]  slength_data_out_exp;
 	input [3 :0]  slength_valid_bits_exp ;
     begin
 	    //@(posedge clk);                                 // wait for the module to update its outpus
+		slength_data_out_exp_rev[12:0] = {slength_data_out_exp[0], slength_data_out_exp[1], slength_data_out_exp[2], slength_data_out_exp[3], slength_data_out_exp[4],
+		                                  slength_data_out_exp[5], slength_data_out_exp[6], slength_data_out_exp[7], slength_data_out_exp[8], slength_data_out_exp[9],
+										  slength_data_out_exp[10], slength_data_out_exp[11], slength_data_out_exp[12]};
+		
+        slength_data_out_exp_rev = slength_data_out_exp_rev >> (4'd13 - slength_valid_bits_exp);	
+										  
+		
         #1   
      		test_count <= test_count + 1;
-    	if( ({slength_data_merged_exp, slength_valid_bits_exp} == {slength_data_merged, slength_valid_bits})) begin
+    	if( ({slength_data_out_exp_rev, slength_valid_bits_exp} == {slength_data_out, slength_valid_bits})) begin
     	    success_count <= success_count + 1; 
 			$display($time,"Success at test %d",test_count);
-			$display("            Static length SL=%b, valid_bits=%d", slength_data_merged, slength_valid_bits);
+			$display("            Static length SL=%b, valid_bits=%d", slength_data_out, slength_valid_bits);
     		end
         else begin
             error_count	<= error_count + 1;
 			$display($time,"Error at test %d \n",test_count);
 			$display("            Observed: length SL=%b, valid_bits=%d\n        Expected: length SD=%b, valid_bits=%d \n" 
-			                                                                                                            ,slength_data_merged, slength_valid_bits
-			                                                                                                            ,slength_data_merged_exp, slength_valid_bits_exp);
+			                                                                                                            ,slength_data_out, slength_valid_bits
+			                                                                                                            ,slength_data_out_exp, slength_valid_bits_exp);
     		end
         end
     endtask

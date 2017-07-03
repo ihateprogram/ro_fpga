@@ -223,15 +223,15 @@ module test_gzip_compress();
             $display($time, "**************************   TEST1   **************************");	
 		    $display($time, "Test phrase= 'abcd' ");
 			btype_in = `FIXED_HUFFMAN;
-		    /*feed_input_fifo({{7'b0,1'b0}, 24'd6});            // BFINAL=0, BTYPE=FIXED_HUFFMAN, LENGTH=6 bytes
-		    feed_input_fifo({"a","b","c","d"});
-		    feed_input_fifo({"e","f",8'd0,8'd0});
+		    feed_input_fifo({{7'b0,`BFINAL1}, 24'd4});            // BFINAL=0, BTYPE=FIXED_HUFFMAN, LENGTH=6 bytes
+		    feed_input_fifo({"x","b","c","d"});
+		    /*feed_input_fifo({"e","f",8'd0,8'd0});
 
 		    feed_input_fifo({{7'b0,1'b1}, 24'd5});              // BFINAL=1, BTYPE=FIXED_HUFFMAN, LENGTH=5 bytes
 		    feed_input_fifo({"g","h","a","b"});
 		    feed_input_fifo({"x",8'd0,8'd0,8'd0}); */
 
-		    feed_input_fifo({{7'b0,`BFINAL1}, 24'd4});          // BFINAL=1, BTYPE=FIXED_HUFFMAN, LENGTH=3 bytes
+		    //feed_input_fifo({{7'b0,`BFINAL1}, 24'd4});          // BFINAL=1, BTYPE=FIXED_HUFFMAN, LENGTH=3 bytes
 		    //for (i=0; i<16; i=i+1)
 			   feed_input_fifo({"a", "b", "c", "d"});
 			//feed_input_fifo({"a", "b", "a", "a"});

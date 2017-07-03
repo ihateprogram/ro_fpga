@@ -56,6 +56,9 @@ module sdht_test();
     integer success_count = 0;
 	integer error_count   = 0;
 	
+	reg [17:0] sdht_data_merged_exp_rev = 0;
+
+	
     // Create clock signal - 100MHz
     always
     #5 clk = ~clk;
@@ -357,7 +360,7 @@ module sdht_test();
         load_data_task(16'd28677);
         validate_sdht_data({1'b0,`DIST_CODE29, 13'd4100}, 5'd18);		
         load_data_task(16'd32768);
-        validate_sdht_data({1'b0,`DIST_CODE29, 13'd8191}, 5'd18);	
+        validate_sdht_data({1'b0,`DIST_CODE29, 13'd8191}, 5'd18);
 		
         //load_data_task(16'd1);
         //load_data_task(16'd2);
@@ -398,19 +401,27 @@ module sdht_test();
 	input [4 :0]  sdht_valid_bits_exp ;
     begin
 	    //@(posedge clk);                                 // wait for the module to update its outpus
+		sdht_data_merged_exp_rev = {sdht_data_merged_exp[0 ], sdht_data_merged_exp[1 ], sdht_data_merged_exp[2 ], sdht_data_merged_exp[3 ],
+		                            sdht_data_merged_exp[4 ], sdht_data_merged_exp[5 ], sdht_data_merged_exp[6 ], sdht_data_merged_exp[7 ],
+								    sdht_data_merged_exp[8 ], sdht_data_merged_exp[9 ], sdht_data_merged_exp[10], sdht_data_merged_exp[11],
+								    sdht_data_merged_exp[12], sdht_data_merged_exp[13], sdht_data_merged_exp[14], sdht_data_merged_exp[15],
+								    sdht_data_merged_exp[16], sdht_data_merged_exp[17]};
+									
+		sdht_data_merged_exp_rev = sdht_data_merged_exp_rev >> (5'd18 - sdht_valid_bits_exp);
+		
 		#1;
             test_count <= test_count + 1;
-    	if( ({sdht_data_merged_exp, sdht_valid_bits_exp} == {sdht_data_merged, sdht_valid_bits}) ) begin
+    	if( ({sdht_data_merged_exp_rev, sdht_valid_bits_exp} == {sdht_data_merged, sdht_valid_bits}) ) begin
     	    success_count <= success_count + 1; 
 			$display($time,"Success at test %d",test_count);
-			$display("            Static distance SD=%b, valid_bits=%d ", sdht_data_merged_exp, sdht_valid_bits_exp);
+			$display("            Static distance SD=%b, valid_bits=%d ", sdht_data_merged_exp_rev, sdht_valid_bits_exp);
     		end
         else begin
             error_count	<= error_count + 1;
 			$display($time,"Error at test %d \n",test_count);
 			$display("            Observed: distance SD=%b, valid_bits=%d\n        Expected: distance SD=%b, valid_bits=%d " 
 			                                                                                                            ,sdht_data_merged, sdht_valid_bits
-			                                                                                                            , sdht_data_merged_exp, sdht_valid_bits_exp);
+			                                                                                                            ,sdht_data_merged_exp_rev, sdht_valid_bits_exp);
     		end
         end
     endtask
