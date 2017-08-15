@@ -144,7 +144,7 @@ module sdht
     	    	inbetween(match_pos_in, 16'd9, 16'd12)    : begin
 		    	            sdht_dist           <= `DIST_CODE6;
                             sdht_extra_bits_no  <= 2;
-                            sdht_extra_bits_val <= match_pos_in - 4'd9;		   // XAPP215 - you have to take in consideration the width of the subtraction operators to obtain best sintesys results					
+                            sdht_extra_bits_val <= match_pos_in - 4'd9; // XAPP215 - you have to take in consideration the width of the subtraction operators to obtain best syntesis results					
     	    	        end
 		    
     	    	inbetween(match_pos_in, 16'd13, 16'd16)   : begin
@@ -336,5 +336,6 @@ module sdht
 									 
 	// Align the bits to the right
 	assign sdht_data_merged = sdht_data_merged_rev >> (5'd18 - sdht_valid_bits);
+	//assign sdht_data_merged = sdht_data_merged_buff;
 	
 endmodule

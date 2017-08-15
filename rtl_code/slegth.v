@@ -73,7 +73,6 @@ module slength
     //====================================================================================================================	
 	//===================================== Create Huffman codes LUT for lengths =========================================
 	//====================================================================================================================
-
     always @(posedge clk)
 	begin
 	    if (!rst_n) begin
@@ -335,7 +334,8 @@ module slength
 	// Right shift the result of the sliteral calculation	
     //always @(*)	
 	//begin
-	assign   slength_data_out = slength_data_out_reversed >> (4'd13 - slength_valid_bits);
+	assign slength_data_out = slength_data_out_reversed >> (4'd13 - slength_valid_bits);
+	//assign slength_data_out = slength_data_merged;
 	   //slength_data_out = slength_data_out_reversed ;
 	//end
 	// The 13 bits of 0 are used to pad the unused bits from the total bit vector
