@@ -57,7 +57,7 @@ Description:   This top module contains control logic for the LZ77 module in ord
 `define CRC32             8'd9
 `define ISIZE             8'd10
 
-//`define REMOVE_ME
+`define REMOVE_ME
 
 `define NO_COMRESSION      2'b00
 `define FIXED_HUFFMAN      2'b01
@@ -165,8 +165,6 @@ module gzip_top
 	wire        byte_counter_inc;
     wire        byte_counter_max;
 	
-	
-    wire state_get_block_header;
 	wire state_end_of_block;
 	wire state_block_len;
 	wire state_idle;
@@ -234,212 +232,203 @@ module gzip_top
  
 
     //// Create the next_state sequencer
-    always @( * )
+    always @(*)
     begin
-        next_state          <= `IDLE;
-        rd_en_fifo_in       <= 0;      // Logic for the input/output dataflow
-    	load_data_in        <= 0;
-    	gzip_data_in        <= 0;
-		load_data_in_crc32  <= 0;
-    	block_header_data   <= 0;
+        next_state          = `IDLE;
+        rd_en_fifo_in       = 0;      // Logic for the input/output dataflow
+    	load_data_in        = 0;
+    	gzip_data_in        = 0;
+		load_data_in_crc32  = 0;
+    	block_header_data   = 0;
 		
-		word_merge_in_valid <= 0;      // Logic for the word_merge module
-		word_merge_in_last  <= 0;
-		word_merge_in_size  <= 0;
-		word_merge_in_data  <= 0;		
+		word_merge_in_valid = 0;      // Logic for the word_merge module
+		word_merge_in_last  = 0;
+		word_merge_in_size  = 0;
+		word_merge_in_data  = 0;		
 		
-		gzip_last_symbol    <= 0;
+		gzip_last_symbol    = 0;
 		
         case ( state )
             `IDLE       : begin 
-    		                `ifdef REMOVE_ME text_gzip_top <="IDLE"; `endif 
+    		                `ifdef REMOVE_ME text_gzip_top ="IDLE"; `endif 
     		                if (!empty_in_fifo && !block_header_received) begin      // process the frame block header 
-    						    next_state    <= `START_OF_BLOCK;
-    							rd_en_fifo_in <= 1;
+    						    next_state    = `START_OF_BLOCK;
+    							rd_en_fifo_in = 1;
     						end	
                             else if (!empty_in_fifo && block_header_received) begin  // we can proceed if we have at least one byte to transmit
-    						    next_state    <= `LOAD_BYTE0;
-    							rd_en_fifo_in <= 1; 
+    						    next_state    = `LOAD_BYTE0;
+    							rd_en_fifo_in = 1; 
                             end
     		            end
 
             `START_OF_BLOCK : begin
-                            `ifdef REMOVE_ME text_gzip_top <="START_OF_BLOCK"; `endif 
+                            `ifdef REMOVE_ME text_gzip_top ="START_OF_BLOCK"; `endif 
 							    // bytes must be swapped because they are stored in reversed order in the computer memory
-								block_header_data <= {dout_in_fifo_32[7:0], dout_in_fifo_32[15:8], dout_in_fifo_32[23:16], dout_in_fifo_32[31:24]};								
-								//block_header_data <= word_swap_bytes(dout_in_fifo_32);								
+								block_header_data = {dout_in_fifo_32[7:0], dout_in_fifo_32[15:8], dout_in_fifo_32[23:16], dout_in_fifo_32[31:24]};								
 								
-							    word_merge_in_valid   <= 1;
-								word_merge_in_size    <= btype_no_compression ? 6'd8 : 6'd3; // For blocks in STORED mode (BTYPE==00) you have to go to a byte boundary
-								//word_merge_in_size    <= 6'd8; // For blocks in STORED mode (BTYPE==00) you have to go to a byte boundary
-								word_merge_in_data    <= {29'b0, btype[1:0], dout_in_fifo_32[0]}; // BTYPE, BFINAL - are the first 3 bits in a block						
+							    word_merge_in_valid   = 1;
+								word_merge_in_size    = btype_no_compression ? 6'd8 : 6'd3; // For blocks in STORED mode (BTYPE==00) you have to go to a byte boundary
+								word_merge_in_data    = {29'b0, btype[1:0], dout_in_fifo_32[0]}; // BTYPE, BFINAL - are the first 3 bits in a block						
 								
-								next_state            <= `BLOCK_LEN;    // FIXME add code to replace BLOCK_LEN state for compressed mode (unnecessary transition)
+								if (btype_no_compression == 1)
+								   next_state = `BLOCK_LEN;    //BLOCK_LEN is reached only from STORED mode
+                                else 
+    						       next_state = `IDLE ;								
                             end
 			
 			`BLOCK_LEN  :  begin
-                            `ifdef REMOVE_ME text_gzip_top <="BLOCK_LEN"; `endif 
-								word_merge_in_valid   <= 1;
-								word_merge_in_size    <= 6'd32;
-								//word_merge_in_data    <= {block_size[7:0], block_size[15:8], ~block_size[7:0], ~block_size[15:8]};
-								word_merge_in_data    <= {~block_size[15:0], block_size[15:0]};							
-							
+                            `ifdef REMOVE_ME text_gzip_top = "BLOCK_LEN"; `endif
+								word_merge_in_valid   = 1;
+								word_merge_in_size    = 6'd32;
+								word_merge_in_data    = {~block_size[15:0], block_size[15:0]};
     						    if (!empty_in_fifo) begin                       
-    						        next_state    <= `LOAD_BYTE0 ;        // if we got more data in the FIFO we can go and transmit another 32 bytes
-    						        rd_en_fifo_in <= 1;
+    						        next_state    = `LOAD_BYTE0 ;        // if we got more data in the FIFO we can go and transmit another 32 bytes
+    						        rd_en_fifo_in = 1;
     						    end
                                 else begin
-    						        next_state    <= `IDLE ;
+    						        next_state    = `IDLE ;
                                 end	
                             end
     		
     	    // If we have data in the input FIFO then we start the compression process
     		`LOAD_BYTE0 : begin 
-    		                `ifdef REMOVE_ME text_gzip_top <="LOAD_BYTE0"; `endif
+    		                `ifdef REMOVE_ME text_gzip_top ="LOAD_BYTE0"; `endif
 							
 							if (btype_no_compression) begin
-							    load_data_in_crc32    <= 1;              // In umcompressed mode the CRC is updated only when a data byte is processed
-								//gzip_data_in          <= dout_in_fifo_32[31:24];  // This is for the CRC. The LZ77 module won't process this data.
-								
-							    word_merge_in_valid   <= 1;
-							    word_merge_in_size    <= 6'd8;
-							    word_merge_in_data    <= {24'b0, dout_in_fifo_32[7:0]};							   
+							    load_data_in_crc32    = 1;              // In uncompressed mode the CRC is updated only when a data byte is processed								
+							    word_merge_in_valid   = 1;
+							    word_merge_in_size    = 6'd8;
+							    word_merge_in_data    = {24'b0, dout_in_fifo_32[7:0]};							   
 							end
 							else begin
-							    load_data_in <= 1;
-    						    gzip_data_in <= dout_in_fifo_32[7:0];
+							    load_data_in = 1;
+    						    gzip_data_in = dout_in_fifo_32[7:0];
 							end
 
 							if (!byte_counter_max) begin                // We send data to the LZ77 encoder until EOF is detected
-         					    next_state   <= `LOAD_BYTE1 ;
+         					    next_state  = `LOAD_BYTE1 ;
 							end                       
-							else next_state  <= `END_OF_BLOCK ; 
+							else next_state = `END_OF_BLOCK ; 
     					end	
     					
     		`LOAD_BYTE1 : begin 
-    		                `ifdef REMOVE_ME text_gzip_top <="LOAD_BYTE1"; `endif
+    		                `ifdef REMOVE_ME text_gzip_top ="LOAD_BYTE1"; `endif
 							
 							if (btype_no_compression) begin
-							    load_data_in_crc32    <= 1;
-								//gzip_data_in          <= dout_in_fifo_32[31:24];  // This is for the CRC. The LZ77 module won't process this data.
-								
-							    word_merge_in_valid   <= 1;
-							    word_merge_in_size    <= 6'd8;
-							    word_merge_in_data    <= {24'b0, dout_in_fifo_32[15:8]};							   
+							    load_data_in_crc32   = 1;								
+							    word_merge_in_valid  = 1;
+							    word_merge_in_size   = 6'd8;
+							    word_merge_in_data   = {24'b0, dout_in_fifo_32[15:8]};							   
 							end
 							else begin
-							    load_data_in <= 1;
-    						    gzip_data_in <= dout_in_fifo_32[15:8];
+							    load_data_in = 1;
+    						    gzip_data_in = dout_in_fifo_32[15:8];
 							end 
 							
 							if (!byte_counter_max) begin                 // We send data to the LZ77 encoder until EOF is detected
-    		                   next_state   <= `LOAD_BYTE2 ;  
+    		                   next_state   = `LOAD_BYTE2 ;  
 							end
-							else next_state <= `END_OF_BLOCK ;
+							else next_state = `END_OF_BLOCK ;
     					end
     					
     		`LOAD_BYTE2 : begin 
     		                `ifdef REMOVE_ME text_gzip_top <="LOAD_BYTE2"; `endif
 							
 							if (btype_no_compression) begin
-							    load_data_in_crc32    <= 1;
-								//gzip_data_in          <= dout_in_fifo_32[31:24];  // This is for the CRC. The LZ77 module won't process this data.
-								
-							    word_merge_in_valid   <= 1;
-							    word_merge_in_size    <= 6'd8;
-							    word_merge_in_data    <= {24'b0, dout_in_fifo_32[23:16]};							   
+							    load_data_in_crc32    = 1;								
+							    word_merge_in_valid   = 1;
+							    word_merge_in_size    = 6'd8;
+							    word_merge_in_data    = {24'b0, dout_in_fifo_32[23:16]};							   
 							end
 							else begin
-							    load_data_in <= 1;
-    						    gzip_data_in <= dout_in_fifo_32[23:16];
+							    load_data_in = 1;
+    						    gzip_data_in = dout_in_fifo_32[23:16];
 							end 							
 							
 							if (!byte_counter_max) begin                 // We send data to the LZ77 encoder until EOF is detected
-    		                    next_state   <= `LOAD_BYTE3;	
+    		                    next_state   = `LOAD_BYTE3;	
 							end
-							else next_state  <= `END_OF_BLOCK ;							
+							else next_state  = `END_OF_BLOCK ;							
     					end	
     					
     		`LOAD_BYTE3 : begin 
-    		                `ifdef REMOVE_ME text_gzip_top <="LOAD_BYTE3"; `endif
+    		                `ifdef REMOVE_ME text_gzip_top ="LOAD_BYTE3"; `endif
 							
 							if (btype_no_compression) begin
-							    load_data_in_crc32    <= 1;
-								//gzip_data_in          <= dout_in_fifo_32[31:24];  // This is for the CRC. The LZ77 module won't process this data.
-								
-							    word_merge_in_valid   <= 1;
-							    word_merge_in_size    <= 6'd8;
-							    word_merge_in_data    <= {24'b0, dout_in_fifo_32[31:24]};							   
+							    load_data_in_crc32    = 1;								
+							    word_merge_in_valid   = 1;
+							    word_merge_in_size    = 6'd8;
+							    word_merge_in_data    = {24'b0, dout_in_fifo_32[31:24]};							   
 							end
 							else begin
-							    load_data_in <= 1;
-    						    gzip_data_in <= dout_in_fifo_32[31:24];
+							    load_data_in = 1;
+    						    gzip_data_in = dout_in_fifo_32[31:24];
 							end
 							
                             if (!byte_counter_max) begin                 // We send data to the LZ77 encoder until EOF is detected
 								if (!empty_in_fifo) begin                // if we got more data in the FIFO we can go and transmit another 32 bytes
-    						        next_state     <= `LOAD_BYTE0 ;
-    							    rd_en_fifo_in  <= 1;
+    						        next_state     = `LOAD_BYTE0 ;
+    							    rd_en_fifo_in  = 1;
     						    end	
-							    else next_state <= `IDLE ;               // we to IDLE if we don't have data but the end of block is not reached
+							    else next_state = `IDLE ;               // we to IDLE if we don't have data but the end of block is not reached
 							
 							end
-							else next_state     <= `END_OF_BLOCK ;
+							else next_state     = `END_OF_BLOCK ;
     					end
 						
 			`END_OF_BLOCK : begin
                             `ifdef REMOVE_ME text_gzip_top <="END_OF_BLOCK"; `endif
-							if (bfinal && btype_no_compression)         next_state <= `CRC32; // if we are at the last data block then we can write the CRC and the ISIZE parameters (only for no compression) 
+							if (bfinal && btype_no_compression)         next_state = `CRC32; // if we are at the last data block then we can write the CRC and the ISIZE parameters (only for no compression) 
 							else if (bfinal && btype_fixed_compression) begin
 							    //if (end_block_cnt_max) begin
 							    if (end_block_cnt == 3'd1) begin
-								   gzip_last_symbol    <= 1;
-								   next_state          <= `END_OF_BLOCK;
+								   gzip_last_symbol    = 1;
+								   next_state          = `END_OF_BLOCK;
 								end 
-								else if (end_block_cnt_max) next_state <= `PAD_WITH_ZEROS;
-								else                        next_state <= `END_OF_BLOCK;
+								else if (end_block_cnt_max) next_state = `PAD_WITH_ZEROS;
+								else                        next_state = `END_OF_BLOCK;
 						    end
                         end		
 
 			`PAD_WITH_ZEROS : begin  // We pad with zeros to byte boundry only if lz77_filt_pad_bits > 0
-			                `ifdef REMOVE_ME text_gzip_top <="PAD_WITH_ZEROS"; `endif
-							if (lz77_filt_pad_bits) begin
-							   word_merge_in_valid <= 1;
-							   word_merge_in_size  <= 8 - lz77_filt_pad_bits;
-							   word_merge_in_data  <= 32'b0;
+			                `ifdef REMOVE_ME text_gzip_top ="PAD_WITH_ZEROS"; `endif
+							if (lz77_filt_pad_bits != 0) begin        /// XXXX this doesn't work. It needs to add 8 bits 
+							   word_merge_in_valid = 1;
+							   word_merge_in_size  = 4'd8 - lz77_filt_pad_bits;   
+							   word_merge_in_data  = 32'b0;
 							end 
 							
-							next_state <= `CRC32;
+							next_state = `CRC32;
 			  
 			            end 
 			
 			`CRC32      : begin
-                            `ifdef REMOVE_ME text_gzip_top <= "CRC32" ; `endif
+                            `ifdef REMOVE_ME text_gzip_top = "CRC32" ; `endif
 							
-							word_merge_in_valid <= 1;
-							word_merge_in_size  <= 6'd32;
-							word_merge_in_data  <= crc32_out;	
-							//word_merge_in_data  <= {crc32_out[7:0], crc32_out[15:8], crc32_out[23:16], crc32_out[31:24]}; 	
+							word_merge_in_valid = 1;
+							word_merge_in_size  = 6'd32;
+							word_merge_in_data  = crc32_out;	
+							//word_merge_in_data  = {crc32_out[7:0], crc32_out[15:8], crc32_out[23:16], crc32_out[31:24]}; 	
 							
-                            next_state          <= `ISIZE;
+                            next_state          = `ISIZE;
 			            end
 			
 			`ISIZE      : begin
-                            `ifdef REMOVE_ME text_gzip_top <= "ISIZE" ; `endif
+                            `ifdef REMOVE_ME text_gzip_top = "ISIZE" ; `endif
 
-							if (isize_stay)  next_state <= `IDLE;
+							if (isize_stay)  next_state = `IDLE;
                             else  begin          
-							    word_merge_in_last    <= 1;
-							    word_merge_in_valid   <= 1;
-							    word_merge_in_size    <= 6'd32;
-							    word_merge_in_data    <= isize;	
-							    //word_merge_in_data    <= {isize[7:0], isize[15:8], isize[23:16], isize[31:24]};	
+							    word_merge_in_last    = 1;
+							    word_merge_in_valid   = 1;
+							    word_merge_in_size    = 6'd32;
+							    word_merge_in_data    = isize;	
+							    //word_merge_in_data    = {isize[7:0], isize[15:8], isize[23:16], isize[31:24]};	
 
-                                next_state <= `ISIZE;									
+                                next_state = `ISIZE;									
 							end
 			            end					
 						
-    		default : begin   next_state <= `IDLE ;end    
+    		default : begin   next_state = `IDLE ;end    
         endcase		
     end
 	
@@ -461,7 +450,6 @@ module gzip_top
 	//====================================================================================================================	
 	// These state decoders are used un several areas in the design
 	assign state_idle              = (state == `IDLE);
-	assign state_get_block_header  = (state == `START_OF_BLOCK);      // FIXME remove duplicated decoder
 	assign state_block_len         = (state == `BLOCK_LEN);
 	assign state_start_block       = (state == `START_OF_BLOCK);
 	assign state_end_of_block      = (state == `END_OF_BLOCK);	
@@ -487,7 +475,7 @@ module gzip_top
 	begin
         if(!rst_n)
             block_header_received <= 1'b0;		
-        else if (state_get_block_header)        // set this flop if is the first time when the header is received
+        else if (state_start_block)        // set this flop if is the first time when the header is received
 	    	block_header_received <= 1'b1;
 		else if (state_end_of_block)            // clear the flop when the module is   
 		    block_header_received <= 1'b0;          
@@ -503,7 +491,7 @@ module gzip_top
             bfinal     <= 0;
             block_size <= 0;			
         end		   
-        else if (state_get_block_header) begin             // load the values from the RX data FIFO
+        else if (state_start_block) begin             // load the values from the RX data FIFO
             bfinal     <= block_header_data [24];
 		    block_size <= block_header_data [23:0];
 		end	
@@ -522,7 +510,7 @@ module gzip_top
         if(!rst_n) begin
             isize <= 0;			
         end		   
-        else if (state_get_block_header) begin            
+        else if (state_start_block) begin            
 			isize <= isize + block_header_data [15:0];
 		end	
     end		
@@ -547,7 +535,7 @@ module gzip_top
 	// When the max value is reached then the counter will be used to insert the end of block symbol. 
 
 	// We check fot the counter maximum value only when we are processing a data byte. 
-    assign byte_counter_max = ~(state_idle | state_get_block_header | state_end_of_block) & (byte_counter == block_size);
+    assign byte_counter_max = ~(state_idle | state_start_block | state_end_of_block) & (byte_counter == block_size);
 
 	//assign byte_counter_inc = (state == `LOAD_BYTE3) | (state == `LOAD_BYTE2) | (state == `LOAD_BYTE1) | (state == `LOAD_BYTE0);
 	assign byte_counter_inc = next_state_load_byte0 | next_state_load_byte1 | next_state_load_byte2 | next_state_load_byte3;
@@ -555,7 +543,7 @@ module gzip_top
     always @(posedge clk or negedge rst_n)
 	begin
 	    if (!rst_n)                      byte_counter <= 32'h0;           // the reset value must be different that 0 to avoid generating maximum condition
-		else if (state_get_block_header) byte_counter <= 32'h0; 
+		else if (state_start_block) byte_counter <= 32'h0; 
 		else if (byte_counter_max)       byte_counter <= 32'h0;
 	    else if (byte_counter_inc)       byte_counter <= byte_counter + 1;		
     end	
@@ -677,17 +665,17 @@ module gzip_top
     always @(posedge clk or negedge rst_n)
 	begin
 	    if(!rst_n) begin
-            match_position_buf0 <= 0;
-            match_length_buf0   <= 0;
-            next_symbol_buf0    <= 0;
-            output_enable_buf0  <= 0;
-			gzip_last_symbol_buf0 <=0;
+            match_position_buf0   <= 0;
+            match_length_buf0     <= 0;
+            next_symbol_buf0      <= 0;
+            output_enable_buf0    <= 0;
+			gzip_last_symbol_buf0 <= 0;
 	    end 
 	    else begin
-            match_position_buf0 <= match_position; 
-            match_length_buf0   <= match_length  ;
-            next_symbol_buf0    <= next_symbol   ;
-            output_enable_buf0  <= output_enable ;
+            match_position_buf0   <= match_position; 
+            match_length_buf0     <= match_length  ;
+            next_symbol_buf0      <= next_symbol   ;
+            output_enable_buf0    <= output_enable ;
 			gzip_last_symbol_buf0 <= gzip_last_symbol;
 	    end
 	end
@@ -695,17 +683,17 @@ module gzip_top
     always @(posedge clk or negedge rst_n)
 	begin
 	    if(!rst_n) begin
-            match_position_buf1 <= 0;
-            match_length_buf1   <= 0;
-            next_symbol_buf1    <= 0;
-            output_enable_buf1  <= 0;
+            match_position_buf1   <= 0;
+            match_length_buf1     <= 0;
+            next_symbol_buf1      <= 0;
+            output_enable_buf1    <= 0;
 			gzip_last_symbol_buf1 <= 0;
 	    end 
 	    else begin
-            match_position_buf1 <= match_position_buf0 + 1; // The addition is performed here to limit the size of the combinational circuit
-            match_length_buf1   <= match_length_buf0  ;
-            next_symbol_buf1    <= next_symbol_buf0   ;
-            output_enable_buf1  <= output_enable_buf0 ;
+            match_position_buf1   <= match_position_buf0 + 1; // The addition is performed here to limit the size of the combinational circuit
+            match_length_buf1     <= match_length_buf0  ;
+            next_symbol_buf1      <= next_symbol_buf0   ;
+            output_enable_buf1    <= output_enable_buf0 ;
 			gzip_last_symbol_buf1 <= gzip_last_symbol_buf0;
 	    end
 	end	
@@ -749,19 +737,16 @@ module gzip_top
 	always @(*)
 	begin
 	    if (btype_fixed_compression) begin
-	        //in_valid <= (state_crc32 || state_isize || (state_end_of_block && end_block_cnt_max)) ? word_merge_in_valid : lz77_filt_valid ;  // In the FIXED_COMPRESSION mode the state machine must be able to write the CRC and ISIZE at the end of a block
-	        in_valid <= (state_crc32 || state_isize || state_pad_zeros || state_get_block_header) ? word_merge_in_valid : lz77_filt_valid ;  // In the FIXED_COMPRESSION mode the state machine must be able to write the CRC and ISIZE at the end of a block
-		    in_last  <= word_merge_in_last;
-		    //in_size  <= (state_crc32 || state_isize || (state_end_of_block && end_block_cnt_max)) ? word_merge_in_size  : lz77_filt_size ;
-		    in_size  <= (state_crc32 || state_isize || state_pad_zeros || state_get_block_header) ? word_merge_in_size  : lz77_filt_size ;
-	        //in_data  <= (state_crc32 || state_isize || (state_end_of_block && end_block_cnt_max)) ? word_merge_in_data  : lz77_filt_data ;
-	        in_data  <= (state_crc32 || state_isize || state_pad_zeros || state_get_block_header) ? word_merge_in_data  : lz77_filt_data ;
+	        in_valid = (state_start_block || state_crc32 || state_isize || state_pad_zeros) ? word_merge_in_valid : lz77_filt_valid ;  // In the FIXED_COMPRESSION mode the state machine must be able to write the CRC and ISIZE at the end of a block
+		    in_last  = word_merge_in_last;
+		    in_size  = (state_start_block || state_crc32 || state_isize || state_pad_zeros) ? word_merge_in_size  : lz77_filt_size ;
+	        in_data  = (state_start_block || state_crc32 || state_isize || state_pad_zeros) ? word_merge_in_data  : lz77_filt_data ;
 	    end
 	    else begin
-	        in_valid <= word_merge_in_valid;
-		    in_last  <= word_merge_in_last ;
-		    in_size  <= word_merge_in_size ;
-	        in_data  <= word_merge_in_data ;
+	        in_valid = word_merge_in_valid;
+		    in_last  = word_merge_in_last ;
+		    in_size  = word_merge_in_size ;
+	        in_data  = word_merge_in_data ;
 	    end
 	end
 	

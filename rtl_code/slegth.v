@@ -31,14 +31,15 @@
 `define LEN_CODE277	7'd21
 `define LEN_CODE278	7'd22
 `define LEN_CODE279	7'd23
-`define LEN_CODE280	8'd192
-`define LEN_CODE281	8'd193
-`define LEN_CODE282	8'd194
-`define LEN_CODE283	8'd195
-`define LEN_CODE284	8'd196
-`define LEN_CODE285	8'd197
-`define LEN_CODE286	8'd198
-`define LEN_CODE287	8'd199
+`define LEN_CODE280 8'd192
+`define LEN_CODE281 8'd193
+`define LEN_CODE282 8'd194
+`define LEN_CODE283 8'd195
+`define LEN_CODE284 8'd196
+`define LEN_CODE285 8'd197
+`define LEN_CODE286 8'd198
+`define LEN_CODE287 8'd199
+
 
 
 module slength
@@ -61,17 +62,17 @@ module slength
 	//reg [8 :0]  slength_extra_bits_val_buff;  
 	//reg [2 :0]  slength_extra_bits_no_buff;
 	
-	reg [12:0]  slength_data_merged; 
+	reg [12:0]  slength_data_merged;
 	reg [8 :0]  match_length_in_buff; 
 	
 	
 	// Combinational logic
     wire [3:0] slength_huff_len;
+	wire [12:0] slength_data_out_reversed;
 	
     //====================================================================================================================	
 	//===================================== Create Huffman codes LUT for lengths =========================================
 	//====================================================================================================================
-
     always @(posedge clk)
 	begin
 	    if (!rst_n) begin
@@ -321,11 +322,22 @@ module slength
 	
     always @(*)
 	begin
-	   slength_data_merged <= (13'b0 << slength_valid_bits) | (slength_huff << slength_extra_bits_no) | slength_extra_bits_val;
+	   //slength_data_merged <= (13'b0 << slength_valid_bits) | (slength_huff << slength_extra_bits_no) | slength_extra_bits_val; obsolete
+	   slength_data_merged <= (slength_huff << slength_extra_bits_no) | slength_extra_bits_val;
     end
 	
-	assign slength_data_out = slength_data_merged;
+	// Connect the bits in reverse order
+	assign slength_data_out_reversed[12:0] = {slength_data_merged[0], slength_data_merged[1], slength_data_merged[2] , slength_data_merged[3] ,
+	                                          slength_data_merged[4], slength_data_merged[5], slength_data_merged[6] , slength_data_merged[7] ,
+									          slength_data_merged[8], slength_data_merged[9], slength_data_merged[10], slength_data_merged[11], slength_data_merged[12]};
 	
+	// Right shift the result of the sliteral calculation	
+    //always @(*)	
+	//begin
+	assign slength_data_out = slength_data_out_reversed >> (4'd13 - slength_valid_bits);
+	//assign slength_data_out = slength_data_merged;
+	   //slength_data_out = slength_data_out_reversed ;
+	//end
 	// The 13 bits of 0 are used to pad the unused bits from the total bit vector
 	/*always @(posedge clk or negedge rst_n)
 	begin

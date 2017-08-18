@@ -21,8 +21,8 @@ Description:   Using this module the LZ77 encoder calculates the maximum length 
 module lz77_encoder
     #( 
      	parameter DATA_WIDTH = 8,
-        parameter DICTIONARY_DEPTH = 2048,
-		parameter DICTIONARY_DEPTH_LOG = 11,
+        parameter DICTIONARY_DEPTH = 512,
+		parameter DICTIONARY_DEPTH_LOG = 9,
 		parameter LOOK_AHEAD_BUFF_DEPTH = 66,
 		parameter CNT_WIDTH = 7     // The counter size must be changed according to the maximum match length
 	 )
@@ -46,8 +46,8 @@ module lz77_encoder
     wire match_global;
 	wire set_match;
 	wire match_position_valid;
-	wire [DATA_WIDTH*DICTIONARY_DEPTH-1:0] out_reg_PE;  // wires to connect the processing elements
-	wire [DICTIONARY_DEPTH-1:0] match_PE;
+	(* dont_touch = "{true}" *) wire [DATA_WIDTH-1:0] out_reg_PE [0:DICTIONARY_DEPTH-1];  // wires to connect the processing elements
+	(* dont_touch = "{true}" *) wire [DICTIONARY_DEPTH-1:0] match_PE;
 	wire match_length_max;
 	
 	assign next_symbol = input_data;
@@ -55,6 +55,21 @@ module lz77_encoder
 	// The search array is a parameterizable module used to create the sliding dictionary and to return the match positions	
     genvar i;     
     generate
+        for (i=0; i < DICTIONARY_DEPTH; i=i+1) begin : SLD_WIN
+		    if ( i==0 )			      
+                reg_PE REG_PE_i (.clk, .rst_n,
+	                           .in_reg_PE(input_data[7:0]), .in_cmp_data(input_data[7:0]),
+                               .shift_en(data_valid), .set_match,
+                               .out_reg_PE(out_reg_PE[i]),  .match(match_PE[i]));					
+			else 			
+				reg_PE REG_PE_i (.clk, .rst_n,
+	                           .in_reg_PE(out_reg_PE[i-1]), .in_cmp_data(input_data[7:0]),
+                               .shift_en(data_valid), .set_match,
+                               .out_reg_PE(out_reg_PE[i]), .match(match_PE[i]));
+        end
+    endgenerate
+
+    /*generate
         for (i=0; i < DICTIONARY_DEPTH; i=i+1) begin : SLD_WIN
 		    if ( i==0 )
                 reg_PE REG_PE_i (.clk, .rst_n,
@@ -67,13 +82,13 @@ module lz77_encoder
                                .shift_en(data_valid), .set_match,
                                .out_reg_PE(out_reg_PE[(i+1)*8-1:i*8]), .match(match_PE[i]));
         end
-    endgenerate
+    endgenerate */
 	
 	assign match_global = |match_PE[DICTIONARY_DEPTH-1:0];    // big OR gate used for match detection
 	
 	// The match calculation will function without data_valid=1 but the downstream modules must not see 
 	// the output_enable signal set when no data is processed.
-    assign output_enable = data_valid & ~match_global | match_length_max;
+    assign output_enable = (data_valid & ~match_global) | match_length_max;
 
 	// Create the signal that shows the maximum value of the counter
 	assign match_length_max = (match_length == LOOK_AHEAD_BUFF_DEPTH-1);
@@ -103,7 +118,7 @@ module lz77_encoder
     	(
 		    .rst_n,
 			.clk,
-    	    .A_IN(match_PE),              // Input Vector
+    	    .A_IN(match_PE[DICTIONARY_DEPTH-1:0]),              // Input Vector
     	    .P(match_position),           // High Priority Index
     	    .F(match_position_valid)      // This is used when the match is on position 0
     	);

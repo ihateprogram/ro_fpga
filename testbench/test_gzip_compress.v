@@ -18,7 +18,7 @@ module test_gzip_compress();
 
     parameter DATA_WIDTH = 8;
     parameter SEARCH_BUFFER_DEPTH = 8;
-    parameter DICTIONARY_DEPTH = 2048;
+    parameter DICTIONARY_DEPTH = 512;
 	parameter DICTIONARY_DEPTH_LOG = clogb2(DICTIONARY_DEPTH);
 	parameter LOOK_AHEAD_BUFF_DEPTH = 258;
 	parameter CNT_WIDTH = clogb2(LOOK_AHEAD_BUFF_DEPTH);
@@ -223,17 +223,23 @@ module test_gzip_compress();
             $display($time, "**************************   TEST1   **************************");	
 		    $display($time, "Test phrase= 'abcd' ");
 			btype_in = `FIXED_HUFFMAN;
-		    /*feed_input_fifo({{7'b0,1'b0}, 24'd6});            // BFINAL=0, BTYPE=FIXED_HUFFMAN, LENGTH=6 bytes
-		    feed_input_fifo({"a","b","c","d"});
-		    feed_input_fifo({"e","f",8'd0,8'd0});
+		    feed_input_fifo({{7'b0,`BFINAL1}, 24'd18});            // BFINAL=0, BTYPE=FIXED_HUFFMAN, LENGTH=6 bytes
+		    feed_input_fifo({"A","n","a"," "}); 
+		    feed_input_fifo({"m","e","r","e"}); 
+		    feed_input_fifo({".","O","v","i"});		
+		    feed_input_fifo({" ","m","e","r"});		
+		    feed_input_fifo({"e","."," "," "});			
+			
+		    //feed_input_fifo({"c","."," "," "});
+		    /*feed_input_fifo({"e","f",8'd0,8'd0});
 
 		    feed_input_fifo({{7'b0,1'b1}, 24'd5});              // BFINAL=1, BTYPE=FIXED_HUFFMAN, LENGTH=5 bytes
 		    feed_input_fifo({"g","h","a","b"});
 		    feed_input_fifo({"x",8'd0,8'd0,8'd0}); */
 
-		    feed_input_fifo({{7'b0,`BFINAL1}, 24'd4});          // BFINAL=1, BTYPE=FIXED_HUFFMAN, LENGTH=3 bytes
+		    //feed_input_fifo({{7'b0,`BFINAL1}, 24'd4});          // BFINAL=1, BTYPE=FIXED_HUFFMAN, LENGTH=3 bytes
 		    //for (i=0; i<16; i=i+1)
-			   feed_input_fifo({"a", "b", "c", "d"});
+			//   feed_input_fifo({"a", "b", "c", "d"});
 			//feed_input_fifo({"a", "b", "a", "a"});
 		    //feed_input_fifo({"a", "1", "9", " "});
             
