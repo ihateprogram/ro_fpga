@@ -221,14 +221,52 @@ module test_gzip_compress();
         start_test2 = 1;
         if (start_test2 == 1)	begin
             $display($time, "**************************   TEST1   **************************");	
-		    $display($time, "Test phrase= 'abcd' ");
+		    //$display($time, "Test phrase= 'abcd' ");
 			btype_in = `FIXED_HUFFMAN;
-		    feed_input_fifo({{7'b0,`BFINAL1}, 24'd18});            // BFINAL=0, BTYPE=FIXED_HUFFMAN, LENGTH=6 bytes
+		    
+			// $display($time, "Test phrase= 'Ana mere.Ovi mere.' ");
+			/*feed_input_fifo({{7'b0,`BFINAL1}, 24'd19});            // BFINAL=0, BTYPE=FIXED_HUFFMAN, LENGTH=18 bytes
 		    feed_input_fifo({"A","n","a"," "}); 
 		    feed_input_fifo({"m","e","r","e"}); 
-		    feed_input_fifo({".","O","v","i"});		
-		    feed_input_fifo({" ","m","e","r"});		
-		    feed_input_fifo({"e","."," "," "});			
+		    feed_input_fifo({"."," ","O","v"});		
+		    feed_input_fifo({"i"," ","m","e"});		
+		    feed_input_fifo({"r","e","."," "});*/
+
+            // $display($time, "Test phrase= 'That apple is our best apple.' ");			
+			/*feed_input_fifo({{7'b0,`BFINAL1}, 24'd29});            // BFINAL=0, BTYPE=FIXED_HUFFMAN, LENGTH=6 bytes
+		    feed_input_fifo({"T","h","a","t"}); 
+		    feed_input_fifo({" ","a","p","p"}); 
+		    feed_input_fifo({"l","e"," ","i"}); 
+		    feed_input_fifo({"s"," ","o","u"}); 
+		    feed_input_fifo({"r"," ","b","e"}); 
+		    feed_input_fifo({"s","t"," ","a"}); 
+		    feed_input_fifo({"p","p","l","e"}); 
+		    feed_input_fifo({"."," "," "," "}); */
+			
+			/*$display($time, "Test phrase= 'Ana are mere. Ovidiu are mere mere.' ");
+			feed_input_fifo({{7'b0,`BFINAL1}, 24'd35});            // BFINAL=0, BTYPE=FIXED_HUFFMAN, LENGTH=18 bytes
+		    feed_input_fifo({"A","n","a"," "}); 
+		    feed_input_fifo({"a","r","e"," "}); 
+		    feed_input_fifo({"m","e","r","e"});
+		    feed_input_fifo({"."," ","O","v"});		
+		    feed_input_fifo({"i","d","i","u"});
+		    feed_input_fifo({" ","a","r","e"});
+		    feed_input_fifo({" ","m","e","r"});
+		    feed_input_fifo({"e"," ","m","e"});
+		    feed_input_fifo({"r","e","."," "}); */
+
+			$display($time, "Test phrase= 'Ana are mere. Ovidiu are mere mere Ana.' ");
+			feed_input_fifo({{7'b0,`BFINAL1}, 24'd39});            // BFINAL=0, BTYPE=FIXED_HUFFMAN, LENGTH=18 bytes
+		    feed_input_fifo({"A","n","a"," "}); 
+		    feed_input_fifo({"a","r","e"," "}); 
+		    feed_input_fifo({"m","e","r","e"});
+		    feed_input_fifo({"."," ","O","v"});		
+		    feed_input_fifo({"i","d","i","u"});
+		    feed_input_fifo({" ","a","r","e"});
+		    feed_input_fifo({" ","m","e","r"});
+		    feed_input_fifo({"e"," ","m","e"});
+		    feed_input_fifo({"r","e"," ","A"});	
+		    feed_input_fifo({"n","a",".","x"});
 			
 		    //feed_input_fifo({"c","."," "," "});
 		    /*feed_input_fifo({"e","f",8'd0,8'd0});
@@ -243,7 +281,7 @@ module test_gzip_compress();
 			//feed_input_fifo({"a", "b", "a", "a"});
 		    //feed_input_fifo({"a", "1", "9", " "});
             
-		    repeat(50) @(posedge clk);
+		    repeat(150) @(posedge clk);
 		    start_test1 = 0;
 			$display($time, "******************** TEST1 finished *************************");
 		end
