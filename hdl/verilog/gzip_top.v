@@ -57,7 +57,7 @@ Description:   This top module contains control logic for the LZ77 module in ord
 `define CRC32             8'd9
 `define ISIZE             8'd10
 
-`define REMOVE_ME
+//`define REMOVE_ME
 
 `define NO_COMRESSION      2'b00
 `define FIXED_HUFFMAN      2'b01
@@ -82,7 +82,6 @@ module gzip_top
                                                   //     01 - compressed with fixed Huffman codes
 	
     // Module outputs 
-
     output [24+32+32+8-1:0] debug_reg,	          // CRC, ISIZE, other signals
     output full_in_fifo,
 	output [31:0] dout_out_fifo_32,  
@@ -90,7 +89,7 @@ module gzip_top
     );
 
     `ifdef REMOVE_ME
-        reg [8*12:1] text_gzip_top = "nimic";
+        reg [8*12:1] text_gzip_top = "empty";
     `endif
 	
 	// Parameter section
@@ -127,8 +126,8 @@ module gzip_top
 	
 	reg in_valid       ;
 	reg in_last        ;
-	reg [5:0]  in_size ;
-	reg [31:0] in_data ;
+	reg [6:0]  in_size ;
+	reg [63:0] in_data ;
 	
 	// Registers for debug and status
 	reg block_size_error;               // when in Fixed Huffman mode the block size > 32768 or in NO_COMRESSION and > 65536
@@ -177,7 +176,7 @@ module gzip_top
 
 	
 	wire [31:0] crc32_out;
-	wire [31:0] gzip_data_out;
+	wire [63:0] gzip_data_out;
 	
 	wire state_crc32;
 	wire state_isize;
@@ -188,8 +187,8 @@ module gzip_top
 
     wire        lz77_filt_valid;  
     //wire        lz77_filt_last,
-    wire [5 :0] lz77_filt_size;     // maximum length can be 32 bits
-	wire [31:0] lz77_filt_data;      // 32 bits of data
+    wire [6 :0] lz77_filt_size;     // maximum length can be 40 bits
+	wire [63:0] lz77_filt_data;     // 64 bits of data
 	wire [ 2:0] lz77_filt_pad_bits;
 	
 	wire end_block_cnt_max;
@@ -203,9 +202,10 @@ module gzip_top
 	
     // The bytes must be reversed because the PCIE driver will put them on reverse order on the line ABCD -> DCBA.
     // The control logic will take care of this.	
-    fifo_32x512 fifo_in_i0(
-    	.clk   (clk              ),
-    	.srst  (reset_fifo       ),
+    /*fifo_32x512 fifo_in_i0(
+    	.rd_clk(clk              ),
+    	.wr_clk(clk              ),
+    	.rst   (reset_fifo       ),
     	.din   (din_fifo_in      ),
     	.wr_en (wr_en_fifo_in    ),
     	.rd_en (rd_en_fifo_in    ),
@@ -213,8 +213,23 @@ module gzip_top
     	.dout  (dout_in_fifo_32  ),
     	.full  (full_in_fifo     ),
     	.empty (empty_in_fifo    )
-    );	
+    );	*/
 
+    fifo_32x512 fifo_in_i0(
+        .rst   (reset_fifo     ),
+        .wr_clk(clk            ),
+        .rd_clk(clk            ),
+        .din   (din_fifo_in    ),
+        .wr_en (wr_en_fifo_in  ),
+        .rd_en (rd_en_fifo_in  ),
+		
+        .dout  (dout_in_fifo_32),
+        .full  (full_in_fifo   ),
+        .empty (empty_in_fifo  )
+    );	
+	
+	
+	
 	
     //====================================================================================================================	
 	//====================================== State Machine for the input dataflow ========================================
@@ -714,10 +729,10 @@ module gzip_top
         // Module inputs
         .clk,	
         .rst_n,		
-        .match_position  (match_position_buf1),
-	    .match_length    (match_length_buf1  ),
-	    .next_symbol     (next_symbol_buf1   ),
-	    .output_enable_in(output_enable_buf1 ),
+        .match_position  (match_position_buf1  ),
+	    .match_length    (match_length_buf1    ),
+	    .next_symbol     (next_symbol_buf1     ),
+	    .output_enable_in(output_enable_buf1   ),
         .gzip_last_symbol(gzip_last_symbol_buf1),		
 		
         // Module outputs
@@ -736,33 +751,33 @@ module gzip_top
     // This module gets data either from the LZ77 encoder or from the control state machine and packs it into 32 bit chunks.
 	always @(*)
 	begin
+	    // In the FIXED_COMPRESSION mode the state machine must be able to write the CRC and ISIZE at the end of a block
 	    if (btype_fixed_compression) begin
-	        in_valid = (state_start_block || state_crc32 || state_isize || state_pad_zeros) ? word_merge_in_valid : lz77_filt_valid ;  // In the FIXED_COMPRESSION mode the state machine must be able to write the CRC and ISIZE at the end of a block
+	        in_valid = (state_start_block || state_crc32 || state_isize || state_pad_zeros) ? word_merge_in_valid : lz77_filt_valid ;  
 		    in_last  = word_merge_in_last;
-		    in_size  = (state_start_block || state_crc32 || state_isize || state_pad_zeros) ? word_merge_in_size  : lz77_filt_size ;
-	        in_data  = (state_start_block || state_crc32 || state_isize || state_pad_zeros) ? word_merge_in_data  : lz77_filt_data ;
+		    in_size  = (state_start_block || state_crc32 || state_isize || state_pad_zeros) ? {1'b0 ,word_merge_in_size} : lz77_filt_size ;
+	        in_data  = (state_start_block || state_crc32 || state_isize || state_pad_zeros) ? {32'b0,word_merge_in_data} : lz77_filt_data ;
 	    end
 	    else begin
 	        in_valid = word_merge_in_valid;
 		    in_last  = word_merge_in_last ;
-		    in_size  = word_merge_in_size ;
-	        in_data  = word_merge_in_data ;
+		    in_size  = {1'b0 ,word_merge_in_size};  // pad because word_merge_in_size is 1 bit smaller than in_size
+	        in_data  = {32'b0,word_merge_in_data};  // pad because word_merge_in_data is 32 bits smaller than in_data
 	    end
 	end
 	
-    word_merge word_merge_i0(
+    word_merge64 word_merge_i0(
         // Module inputs
         .clock(clk),
         .reset(!rst_n),    
-        .in_valid,              //(word_merge_in_valid),
-        .in_last ,              //(word_merge_in_last ), 
-        .in_size ,              //(word_merge_in_size ),
-        .in_data ,              //(word_merge_in_data ),
+        .in_valid,
+        .in_last ,
+        .in_size ,
+        .in_data ,
      	
      	// Module outputs
         .out_valid (wr_en_fifo_out),
         .out_last  (out_last),
-        .out_bvalid(),
         .out_data  (gzip_data_out)
         );
 		
@@ -771,25 +786,33 @@ module gzip_top
 	//========================================== Instantiate the Output FIFO =============================================
 	//====================================================================================================================
 	
-    // The bytes must be reversed because the PCIE driver will put them on reverse order on the line ABCD -> DCBA.
-    // The control logic will take care of this.	
-    fifo_32x512 fifo_out_i0(
+    // The bytes must be reversed because the PCIE driver will put them on reverse order on the line ABCD -> DCBA.	
+    /*fifo_32x512 fifo_out_i0(
     	.clk   (clk              ),
     	.srst  (reset_fifo       ),
     	.din   (gzip_data_out    ),
     	.wr_en (wr_en_fifo_out   ),
     	.rd_en (rd_en_fifo_out   ),
     	
-    	//.dout  (dout_out_fifo_32_mixed),
     	.dout  (dout_out_fifo_32 ),
     	.full  (full_out_fifo    ),
     	.empty (empty_out_fifo   )
+    ); */
+	
+    fifo_64x256 fifo_out_i0(
+       .rst     (reset_fifo      ),
+       .wr_clk  (clk             ),
+       .rd_clk  (clk             ),
+       .din     ({gzip_data_out[31:0],gzip_data_out[63:32]}), // The read pointer starts from left for position 0 
+       .wr_en   (wr_en_fifo_out  ),
+       .rd_en   (rd_en_fifo_out  ),
+	   
+       .dout    (dout_out_fifo_32),
+       .full    (full_out_fifo   ),
+       .empty	(empty_out_fifo  )
     );
 
-	// The data bytes have to be reversed at byte level
-	//assign dout_out_fifo_32 = {dout_out_fifo_32_mixed[7:0], dout_out_fifo_32_mixed[15:8], dout_out_fifo_32_mixed[23:16], dout_out_fifo_32_mixed[31:24]};
 
-	
 	//====================================================================================================================	
 	//======================================= Functions used in hardware design ==========================================
 	//====================================================================================================================
