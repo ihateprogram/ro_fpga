@@ -71,7 +71,8 @@ module gzip_top
 	)
     (
     // Module inputs
-    input        clk,	
+    input        xilly_clk,                       // Xillybus clock
+	input        clk,                             // GZIP core clk
     input        rst_n,
     input        reset_fifo,                      // The FIFOs need a special reset to communicate with the Xillybus core independent of the GZIP reset bit	
 	input        wr_en_fifo_in,
@@ -82,7 +83,7 @@ module gzip_top
                                                   //     01 - compressed with fixed Huffman codes
 	
     // Module outputs 
-    output [24+32+32+8-1:0] debug_reg,	          // CRC, ISIZE, other signals
+    output [95:0] debug_reg,	                  // CRC, ISIZE, other signals
     output full_in_fifo,
 	output [31:0] dout_out_fifo_32,  
 	output empty_out_fifo
@@ -202,22 +203,9 @@ module gzip_top
 	
     // The bytes must be reversed because the PCIE driver will put them on reverse order on the line ABCD -> DCBA.
     // The control logic will take care of this.	
-    /*fifo_32x512 fifo_in_i0(
-    	.rd_clk(clk              ),
-    	.wr_clk(clk              ),
-    	.rst   (reset_fifo       ),
-    	.din   (din_fifo_in      ),
-    	.wr_en (wr_en_fifo_in    ),
-    	.rd_en (rd_en_fifo_in    ),
-    	
-    	.dout  (dout_in_fifo_32  ),
-    	.full  (full_in_fifo     ),
-    	.empty (empty_in_fifo    )
-    );	*/
-
     fifo_32x512 fifo_in_i0(
         .rst   (reset_fifo     ),
-        .wr_clk(clk            ),
+        .wr_clk(xilly_clk      ),
         .rd_clk(clk            ),
         .din   (din_fifo_in    ),
         .wr_en (wr_en_fifo_in  ),
@@ -227,9 +215,7 @@ module gzip_top
         .full  (full_in_fifo   ),
         .empty (empty_in_fifo  )
     );	
-	
-	
-	
+
 	
     //====================================================================================================================	
 	//====================================== State Machine for the input dataflow ========================================
@@ -786,23 +772,11 @@ module gzip_top
 	//========================================== Instantiate the Output FIFO =============================================
 	//====================================================================================================================
 	
-    // The bytes must be reversed because the PCIE driver will put them on reverse order on the line ABCD -> DCBA.	
-    /*fifo_32x512 fifo_out_i0(
-    	.clk   (clk              ),
-    	.srst  (reset_fifo       ),
-    	.din   (gzip_data_out    ),
-    	.wr_en (wr_en_fifo_out   ),
-    	.rd_en (rd_en_fifo_out   ),
-    	
-    	.dout  (dout_out_fifo_32 ),
-    	.full  (full_out_fifo    ),
-    	.empty (empty_out_fifo   )
-    ); */
-	
+    // The bytes must be reversed because the PCIE driver will put them on reverse order on the line ABCD -> DCBA.		
     fifo_64x256 fifo_out_i0(
        .rst     (reset_fifo      ),
-       .wr_clk  (clk             ),
-       .rd_clk  (clk             ),
+       .wr_clk  (clk             ),    // the write comes from GZIP domain
+       .rd_clk  (xilly_clk       ),
        .din     ({gzip_data_out[31:0],gzip_data_out[63:32]}), // The read pointer starts from left for position 0 
        .wr_en   (wr_en_fifo_out  ),
        .rd_en   (rd_en_fifo_out  ),
@@ -812,15 +786,5 @@ module gzip_top
        .empty	(empty_out_fifo  )
     );
 
-
-	//====================================================================================================================	
-	//======================================= Functions used in hardware design ==========================================
-	//====================================================================================================================
-	// This function swaps the byte order inside a 32bit word
-	/*function [31:0] word_swap_bytes (input [31:0] word_in);
-	begin
-	    word_swap_bytes[31:0] = {word_in[7:0], word_in[15:8], word_in[23:16], word_in[31:24]};
-	end	
-	endfunction	*/	
 
 endmodule
