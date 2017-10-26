@@ -5,20 +5,18 @@
 
 `timescale 1 ns / 10 ps
 
-`include "../rtl_code/functions.v"
-
 `define NO_COMRESSION      2'b00
 `define FIXED_HUFFMAN      2'b01
 
 
-module test_gzip();
+module test_gzip;
 
     parameter DATA_WIDTH = 8;
     parameter SEARCH_BUFFER_DEPTH = 8;
     parameter DICTIONARY_DEPTH = 16;
-	parameter DICTIONARY_DEPTH_LOG = clogb2(DICTIONARY_DEPTH);
+	parameter DICTIONARY_DEPTH_LOG = $clog2(DICTIONARY_DEPTH);
 	parameter LOOK_AHEAD_BUFF_DEPTH = 8;
-	parameter CNT_WIDTH = clogb2(LOOK_AHEAD_BUFF_DEPTH);
+	parameter CNT_WIDTH = $clog2(LOOK_AHEAD_BUFF_DEPTH);
 	
   
     integer i;

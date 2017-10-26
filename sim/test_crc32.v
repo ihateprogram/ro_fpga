@@ -9,7 +9,7 @@
 
 
 
-module crc32_test();
+module test_crc32;
  
     integer i;
     // Declare input/output variables
