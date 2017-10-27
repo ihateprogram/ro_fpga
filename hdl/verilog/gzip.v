@@ -35,7 +35,7 @@ module gzip
     //Xillybus Mem interface
     input             user_r_mem_8_rden,
     output            user_r_mem_8_empty,
-    output reg [7:0]  user_r_mem_8_data,
+    output     [7:0]  user_r_mem_8_data,
     output            user_r_mem_8_eof,
     output            user_r_mem_8_open,
     input             user_w_mem_8_wren,
