@@ -38,7 +38,7 @@
 `define LEN_CODE287 8'd199
 
 
-module slength_test();
+module test_slength;
  
     integer i;
     // Declare input/output variables

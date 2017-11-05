@@ -37,7 +37,7 @@
 `define DIST_CODE29	5'd29
 
 
-module sdht_test();
+module test_sdht;
  
     integer i;
     // Declare input/output variables

@@ -5,16 +5,14 @@
 
 `timescale 1 ns / 10 ps
 
-`include "../rtl_code/functions.v"
-
-module lz77_test();
+module test_lz77;
 
     parameter DATA_WIDTH = 8;
    // parameter SEARCH_BUFFER_DEPTH = 8;
     parameter DICTIONARY_DEPTH = 32;
-	parameter DICTIONARY_DEPTH_LOG = clogb2(DICTIONARY_DEPTH);
+	parameter DICTIONARY_DEPTH_LOG = $clog2(DICTIONARY_DEPTH);
 	parameter LOOK_AHEAD_BUFF_DEPTH = 19;
-	parameter CNT_WIDTH = clogb2(LOOK_AHEAD_BUFF_DEPTH);
+	parameter CNT_WIDTH = $clog2(LOOK_AHEAD_BUFF_DEPTH);
 	
   
     integer i;
@@ -26,7 +24,7 @@ module lz77_test();
     reg [DATA_WIDTH-1:0] input_data;
 
     wire encode;
-    wire [clogb2(DICTIONARY_DEPTH)-1:0] match_position;
+    wire [$clog2(DICTIONARY_DEPTH)-1:0] match_position;
 	//wire match_valid;
 	wire [CNT_WIDTH-1:0]        match_length;
 	wire [DATA_WIDTH-1:0]       next_symbol;
@@ -221,7 +219,7 @@ module lz77_test();
 		
 	// Task used to display data from the lz77 encoder
     task display_output_data;
-		input [clogb2(DICTIONARY_DEPTH)-1:0] match_position;
+		input [$clog2(DICTIONARY_DEPTH)-1:0] match_position;
 		input [CNT_WIDTH-1:0]                match_length;
         input [DATA_WIDTH-1:0]               next_symbol;
 		input output_enable;

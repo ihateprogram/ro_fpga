@@ -6,7 +6,7 @@
 `timescale 1 ns / 10 ps
 
 
-module lz77_test();
+module test_word_merge;
  
     integer i;
     // Declare input/output variables
@@ -31,7 +31,7 @@ module lz77_test();
 	
     // Instantiate DUT
  
-    word_merge word_merge_i0(
+    word_merge64 word_merge_i0(
        // Module inputs
        .clock(clk),
        .reset(!rst_n),    
@@ -43,7 +43,7 @@ module lz77_test();
     	// Module outputs
        .out_valid,
        .out_last,
-       .out_bvalid,
+       //.out_bvalid,
        .out_data
     );		
 		
