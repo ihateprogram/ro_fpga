@@ -108,259 +108,259 @@ module sdht_test();
 		
 		// Distance between 5-6
         load_data_task(16'd5);
-        validate_sdht_data({12'b0,`DIST_CODE4, 1'b0}, 5'd6);	// one extra bit
+        validate_sdht_data({12'b0, 1'b0, `DIST_CODE4}, 5'd6);	// one extra bit
         load_data_task(16'd6);
-        validate_sdht_data({12'b0,`DIST_CODE4, 1'b1}, 5'd6);
+        validate_sdht_data({12'b0, 1'b1, `DIST_CODE4}, 5'd6);
 
 		// Distance between 7-8
         load_data_task(16'd7);
-        validate_sdht_data({12'b0,`DIST_CODE5, 1'b0}, 5'd6);    // one extra bit	
+        validate_sdht_data({12'b0, 1'b0, `DIST_CODE5}, 5'd6);    // one extra bit	
         load_data_task(16'd8);
-        validate_sdht_data({12'b0,`DIST_CODE5, 1'b1}, 5'd6);
+        validate_sdht_data({12'b0, 1'b1, `DIST_CODE5}, 5'd6);
 
 		// Distance between 9-12
         load_data_task(16'd9);
-        validate_sdht_data({11'b0,`DIST_CODE6, 2'd0}, 5'd7);    // two extra bits	
-        load_data_task(16'd10);
-        validate_sdht_data({11'b0,`DIST_CODE6, 2'd1}, 5'd7);
-        load_data_task(16'd11);
-        validate_sdht_data({11'b0,`DIST_CODE6, 2'd2}, 5'd7);
-        load_data_task(16'd12);
-        validate_sdht_data({11'b0,`DIST_CODE6, 2'd3}, 5'd7);
+        validate_sdht_data({11'b0,2'd0, `DIST_CODE6}, 5'd7);    // two extra bits	
+        load_data_task(16'd10);        
+        validate_sdht_data({11'b0,2'd1, `DIST_CODE6}, 5'd7);
+        load_data_task(16'd11);       
+        validate_sdht_data({11'b0,2'd2, `DIST_CODE6}, 5'd7);
+        load_data_task(16'd12);        
+        validate_sdht_data({11'b0,2'd3, `DIST_CODE6}, 5'd7);
 
 		// Distance between 13-16
         load_data_task(16'd13);
-        validate_sdht_data({11'b0,`DIST_CODE7, 2'd0}, 5'd7);    // two extra bits
+        validate_sdht_data({11'b0, 2'd0, `DIST_CODE7}, 5'd7);    // two extra bits
         load_data_task(16'd15);
-        validate_sdht_data({11'b0,`DIST_CODE7, 2'd2}, 5'd7);    		
+        validate_sdht_data({11'b0, 2'd2, `DIST_CODE7}, 5'd7);    		
         load_data_task(16'd16);
-        validate_sdht_data({11'b0,`DIST_CODE7, 2'd3}, 5'd7);     		
+        validate_sdht_data({11'b0, 2'd3, `DIST_CODE7}, 5'd7);     		
 
 		// Distance between 17-24
         load_data_task(16'd17);
-        validate_sdht_data({10'b0,`DIST_CODE8, 3'd0}, 5'd8);    // three extra bits		
-        load_data_task(16'd19);
-        validate_sdht_data({10'b0,`DIST_CODE8, 3'd2}, 5'd8); 
-        load_data_task(16'd21);
-        validate_sdht_data({10'b0,`DIST_CODE8, 3'd4}, 5'd8); 
-        load_data_task(16'd24);
-        validate_sdht_data({10'b0,`DIST_CODE8, 3'd7}, 5'd8); 
+        validate_sdht_data({10'b0,3'd0,`DIST_CODE8}, 5'd8);    // three extra bits		
+        load_data_task(16'd19);   
+        validate_sdht_data({10'b0,3'd2,`DIST_CODE8}, 5'd8); 
+        load_data_task(16'd21);   
+        validate_sdht_data({10'b0,3'd4,`DIST_CODE8}, 5'd8); 
+        load_data_task(16'd24);   
+        validate_sdht_data({10'b0,3'd7,`DIST_CODE8}, 5'd8); 
 		
 		// Distance between 25-32
         load_data_task(16'd25);
-        validate_sdht_data({10'b0,`DIST_CODE9, 3'd0}, 5'd8);    // three extra bits			
+        validate_sdht_data({10'b0, 3'd0, `DIST_CODE9}, 5'd8);    // three extra bits			
         load_data_task(16'd26);
-        validate_sdht_data({10'b0,`DIST_CODE9, 3'd1}, 5'd8);
+        validate_sdht_data({10'b0, 3'd1, `DIST_CODE9}, 5'd8);
         load_data_task(16'd32);
-        validate_sdht_data({10'b0,`DIST_CODE9, 3'd7}, 5'd8);
+        validate_sdht_data({10'b0, 3'd7, `DIST_CODE9}, 5'd8);
         load_data_task(16'd30);
-        validate_sdht_data({10'b0,`DIST_CODE9, 3'd5}, 5'd8);
+        validate_sdht_data({10'b0, 3'd5, `DIST_CODE9}, 5'd8);
 		
 		// Distance between 33-48
         load_data_task(16'd33);
-        validate_sdht_data({9'b0,`DIST_CODE10, 4'd0}, 5'd9);    // four extra bits
+        validate_sdht_data({9'b0, 4'd0, `DIST_CODE10}, 5'd9);    // four extra bits
         load_data_task(16'd35);
-        validate_sdht_data({9'b0,`DIST_CODE10, 4'd2}, 5'd9);
+        validate_sdht_data({9'b0, 4'd2, `DIST_CODE10}, 5'd9);
         load_data_task(16'd40);
-        validate_sdht_data({9'b0,`DIST_CODE10, 4'd7}, 5'd9);
+        validate_sdht_data({9'b0, 4'd7, `DIST_CODE10}, 5'd9);
         load_data_task(16'd45);
-        validate_sdht_data({9'b0,`DIST_CODE10, 4'd12}, 5'd9);
+        validate_sdht_data({9'b0, 4'd12, `DIST_CODE10}, 5'd9);
         load_data_task(16'd48);
-        validate_sdht_data({9'b0,`DIST_CODE10, 4'd15}, 5'd9);
+        validate_sdht_data({9'b0, 4'd15, `DIST_CODE10}, 5'd9);
 
 		// Distance between 49-64
         load_data_task(16'd49);
-        validate_sdht_data({9'b0,`DIST_CODE11, 4'd0}, 5'd9);    // four extra bits
+        validate_sdht_data({9'b0, 4'd0, `DIST_CODE11}, 5'd9);    // four extra bits
         load_data_task(16'd53);
-        validate_sdht_data({9'b0,`DIST_CODE11, 4'd4}, 5'd9);
+        validate_sdht_data({9'b0, 4'd4, `DIST_CODE11}, 5'd9);
         load_data_task(16'd59);
-        validate_sdht_data({9'b0,`DIST_CODE11, 4'd10}, 5'd9);
+        validate_sdht_data({9'b0, 4'd10, `DIST_CODE11}, 5'd9);
         load_data_task(16'd64);
-        validate_sdht_data({9'b0,`DIST_CODE11, 4'd15}, 5'd9);
+        validate_sdht_data({9'b0, 4'd15,`DIST_CODE11}, 5'd9);
 		
 		// Distance between 65-96
         load_data_task(16'd65);
-        validate_sdht_data({8'b0,`DIST_CODE12, 5'd0}, 5'd10);   // five extra bits
+        validate_sdht_data({8'b0, 5'd0, `DIST_CODE12}, 5'd10);   // five extra bits
         load_data_task(16'd68);
-        validate_sdht_data({8'b0,`DIST_CODE12, 5'd3}, 5'd10);		
+        validate_sdht_data({8'b0, 5'd3, `DIST_CODE12}, 5'd10);		
         load_data_task(16'd87);
-        validate_sdht_data({8'b0,`DIST_CODE12, 5'd22}, 5'd10);
+        validate_sdht_data({8'b0, 5'd22, `DIST_CODE12}, 5'd10);
         load_data_task(16'd96);
-        validate_sdht_data({8'b0,`DIST_CODE12, 5'd31}, 5'd10);
+        validate_sdht_data({8'b0, 5'd31, `DIST_CODE12}, 5'd10);
 
 		// Distance between 97-128
         load_data_task(16'd97);
-        validate_sdht_data({8'b0,`DIST_CODE13, 5'd0}, 5'd10);   // five extra bits
+        validate_sdht_data({8'b0, 5'd0, `DIST_CODE13}, 5'd10);   // five extra bits
         load_data_task(16'd101);
-        validate_sdht_data({8'b0,`DIST_CODE13, 5'd4}, 5'd10);
+        validate_sdht_data({8'b0, 5'd4, `DIST_CODE13}, 5'd10);
         load_data_task(16'd111);
-        validate_sdht_data({8'b0,`DIST_CODE13, 5'd14}, 5'd10);		
+        validate_sdht_data({8'b0, 5'd14, `DIST_CODE13}, 5'd10);		
         load_data_task(16'd121);
-        validate_sdht_data({8'b0,`DIST_CODE13, 5'd24}, 5'd10);
+        validate_sdht_data({8'b0, 5'd24, `DIST_CODE13}, 5'd10);
         load_data_task(16'd128);
-        validate_sdht_data({8'b0,`DIST_CODE13, 5'd31}, 5'd10);
+        validate_sdht_data({8'b0, 5'd31, `DIST_CODE13}, 5'd10);
 		
 		// Distance between 129-192
         load_data_task(16'd129);
-        validate_sdht_data({7'b0,`DIST_CODE14, 6'd0}, 5'd11);  // six extra bits 
+        validate_sdht_data({7'b0, 6'd0, `DIST_CODE14}, 5'd11);  // six extra bits 
         load_data_task(16'd134);
-        validate_sdht_data({7'b0,`DIST_CODE14, 6'd5}, 5'd11); 
+        validate_sdht_data({7'b0, 6'd5, `DIST_CODE14}, 5'd11); 
         load_data_task(16'd144);
-        validate_sdht_data({7'b0,`DIST_CODE14, 6'd15}, 5'd11); 
+        validate_sdht_data({7'b0, 6'd15, `DIST_CODE14}, 5'd11); 
         load_data_task(16'd164);
-        validate_sdht_data({7'b0,`DIST_CODE14, 6'd35}, 5'd11); 
+        validate_sdht_data({7'b0, 6'd35, `DIST_CODE14}, 5'd11); 
         load_data_task(16'd184);
-        validate_sdht_data({7'b0,`DIST_CODE14, 6'd55}, 5'd11);
+        validate_sdht_data({7'b0, 6'd55, `DIST_CODE14}, 5'd11);
         load_data_task(16'd192);
-        validate_sdht_data({7'b0,`DIST_CODE14, 6'd63}, 5'd11);
+        validate_sdht_data({7'b0, 6'd63, `DIST_CODE14}, 5'd11);
 
 		// Distance between 193-256
         load_data_task(16'd193);
-        validate_sdht_data({7'b0,`DIST_CODE15, 6'd0}, 5'd11);  // six extra bits 		
+        validate_sdht_data({7'b0, 6'd0, `DIST_CODE15}, 5'd11);  // six extra bits 		
         load_data_task(16'd200);
-        validate_sdht_data({7'b0,`DIST_CODE15, 6'd7}, 5'd11);
+        validate_sdht_data({7'b0, 6'd7, `DIST_CODE15}, 5'd11);
         load_data_task(16'd240);
-        validate_sdht_data({7'b0,`DIST_CODE15, 6'd47}, 5'd11);		
+        validate_sdht_data({7'b0, 6'd47, `DIST_CODE15}, 5'd11);		
         load_data_task(16'd256);
-        validate_sdht_data({7'b0,`DIST_CODE15, 6'd63}, 5'd11);
+        validate_sdht_data({7'b0, 6'd63, `DIST_CODE15}, 5'd11);
 
 		// Distance between 257-384
         load_data_task(16'd257);
-        validate_sdht_data({6'b0,`DIST_CODE16, 7'd0}, 5'd12);  // seven extra bits 		
+        validate_sdht_data({6'b0, 7'd0, `DIST_CODE16}, 5'd12);  // seven extra bits 		
         load_data_task(16'd262);
-        validate_sdht_data({6'b0,`DIST_CODE16, 7'd5}, 5'd12);
+        validate_sdht_data({6'b0, 7'd5, `DIST_CODE16}, 5'd12);
         load_data_task(16'd300);
-        validate_sdht_data({6'b0,`DIST_CODE16, 7'd43}, 5'd12);
+        validate_sdht_data({6'b0, 7'd43, `DIST_CODE16}, 5'd12);
         load_data_task(16'd380);
-        validate_sdht_data({6'b0,`DIST_CODE16, 7'd123}, 5'd12);
+        validate_sdht_data({6'b0, 7'd123, `DIST_CODE16}, 5'd12);
         load_data_task(16'd384);
-        validate_sdht_data({6'b0,`DIST_CODE16, 7'd127}, 5'd12);
+        validate_sdht_data({6'b0, 7'd127, `DIST_CODE16}, 5'd12);
 
 		// Distance between 385-512
         load_data_task(16'd385);
-        validate_sdht_data({6'b0,`DIST_CODE17, 7'd0}, 5'd12);  // seven extra bits
+        validate_sdht_data({6'b0, 7'd0, `DIST_CODE17}, 5'd12);  // seven extra bits
         load_data_task(16'd386);
-        validate_sdht_data({6'b0,`DIST_CODE17, 7'd1}, 5'd12);
+        validate_sdht_data({6'b0, 7'd1, `DIST_CODE17}, 5'd12);
         load_data_task(16'd433);
-        validate_sdht_data({6'b0,`DIST_CODE17, 7'd48}, 5'd12);
+        validate_sdht_data({6'b0, 7'd48, `DIST_CODE17}, 5'd12);
         load_data_task(16'd512);
-        validate_sdht_data({6'b0,`DIST_CODE17, 7'd127}, 5'd12);
+        validate_sdht_data({6'b0, 7'd127, `DIST_CODE17}, 5'd12);
 
 		// Distance between 513-768
         load_data_task(16'd513);
-        validate_sdht_data({5'b0,`DIST_CODE18, 8'd0}, 5'd13);  // eight extra bits		
+        validate_sdht_data({5'b0, 8'd0, `DIST_CODE18}, 5'd13);  // eight extra bits		
         load_data_task(16'd515);
-        validate_sdht_data({5'b0,`DIST_CODE18, 8'd2}, 5'd13);
+        validate_sdht_data({5'b0, 8'd2, `DIST_CODE18}, 5'd13);
         load_data_task(16'd600);
-        validate_sdht_data({5'b0,`DIST_CODE18, 8'd87}, 5'd13);
+        validate_sdht_data({5'b0, 8'd87, `DIST_CODE18}, 5'd13);
         load_data_task(16'd713);
-        validate_sdht_data({5'b0,`DIST_CODE18, 8'd200}, 5'd13);
+        validate_sdht_data({5'b0, 8'd200, `DIST_CODE18}, 5'd13);
         load_data_task(16'd768);
-        validate_sdht_data({5'b0,`DIST_CODE18, 8'd255}, 5'd13);
+        validate_sdht_data({5'b0, 8'd255, `DIST_CODE18}, 5'd13);
 		
         // Distance between 769-1024		
         load_data_task(16'd769);
-        validate_sdht_data({5'b0,`DIST_CODE19, 8'd0}, 5'd13);  // eight extra bits
+        validate_sdht_data({5'b0, 8'd0, `DIST_CODE19}, 5'd13);  // eight extra bits
         load_data_task(16'd869);
-        validate_sdht_data({5'b0,`DIST_CODE19, 8'd100}, 5'd13);
+        validate_sdht_data({5'b0, 8'd100, `DIST_CODE19}, 5'd13);
         load_data_task(16'd969);
-        validate_sdht_data({5'b0,`DIST_CODE19, 8'd200}, 5'd13);		
+        validate_sdht_data({5'b0, 8'd200,`DIST_CODE19}, 5'd13);		
         load_data_task(16'd1024);
-        validate_sdht_data({5'b0,`DIST_CODE19, 8'd255}, 5'd13);			
+        validate_sdht_data({5'b0, 8'd255, `DIST_CODE19}, 5'd13);			
 
         // Distance between 1025-1536
         load_data_task(16'd1025);
-        validate_sdht_data({4'b0,`DIST_CODE20, 9'd0}, 5'd14);  // nine extra bits
+        validate_sdht_data({4'b0, 9'd0, `DIST_CODE20}, 5'd14);  // nine extra bits
         load_data_task(16'd1326);
-        validate_sdht_data({4'b0,`DIST_CODE20, 9'd301}, 5'd14); 
+        validate_sdht_data({4'b0, 9'd301, `DIST_CODE20}, 5'd14); 
         load_data_task(16'd1536);
-        validate_sdht_data({4'b0,`DIST_CODE20, 9'd511}, 5'd14); 
+        validate_sdht_data({4'b0, 9'd511, `DIST_CODE20}, 5'd14); 
 
         // Distance between 1537-2048
         load_data_task(16'd1537);
-        validate_sdht_data({4'b0,`DIST_CODE21, 9'd0}, 5'd14);  // nine extra bits
+        validate_sdht_data({4'b0, 9'd0, `DIST_CODE21}, 5'd14);  // nine extra bits
         load_data_task(16'd1837);
-        validate_sdht_data({4'b0,`DIST_CODE21, 9'd300}, 5'd14);
+        validate_sdht_data({4'b0, 9'd300, `DIST_CODE21}, 5'd14);
         load_data_task(16'd2048);
-        validate_sdht_data({4'b0,`DIST_CODE21, 9'd511}, 5'd14);
+        validate_sdht_data({4'b0, 9'd511, `DIST_CODE21}, 5'd14);
 
         // Distance between 2049-3072
         load_data_task(16'd2049);
-        validate_sdht_data({3'b0,`DIST_CODE22, 10'd0}, 5'd15);  // ten extra bits	
+        validate_sdht_data({3'b0, 10'd0, `DIST_CODE22}, 5'd15);  // ten extra bits	
         load_data_task(16'd2059);
-        validate_sdht_data({3'b0,`DIST_CODE22, 10'd10}, 5'd15); 	
+        validate_sdht_data({3'b0, 10'd10, `DIST_CODE22}, 5'd15); 	
         load_data_task(16'd3000);
-        validate_sdht_data({3'b0,`DIST_CODE22, 10'd951}, 5'd15); 
+        validate_sdht_data({3'b0, 10'd951, `DIST_CODE22}, 5'd15); 
         load_data_task(16'd3072);
-        validate_sdht_data({3'b0,`DIST_CODE22, 10'd1023}, 5'd15);
+        validate_sdht_data({3'b0, 10'd1023, `DIST_CODE22}, 5'd15);
 
         // Distance between 3073-4096
         load_data_task(16'd3073);
-        validate_sdht_data({3'b0,`DIST_CODE23, 10'd0}, 5'd15);  // ten extra bits		
+        validate_sdht_data({3'b0, 10'd0, `DIST_CODE23}, 5'd15);  // ten extra bits		
         load_data_task(16'd3093);
-        validate_sdht_data({3'b0,`DIST_CODE23, 10'd20}, 5'd15); 
+        validate_sdht_data({3'b0, 10'd20, `DIST_CODE23}, 5'd15); 
         load_data_task(16'd3999);
-        validate_sdht_data({3'b0,`DIST_CODE23, 10'd926}, 5'd15);
+        validate_sdht_data({3'b0, 10'd926, `DIST_CODE23}, 5'd15);
         load_data_task(16'd4096);
-        validate_sdht_data({3'b0,`DIST_CODE23, 10'd1023}, 5'd15);
+        validate_sdht_data({3'b0, 10'd1023, `DIST_CODE23}, 5'd15);
 
         // Distance between 4097-6144
         load_data_task(16'd4097);
-        validate_sdht_data({3'b0,`DIST_CODE24, 11'd0}, 5'd16);  // eleven extra bits
+        validate_sdht_data({3'b0, 11'd0, `DIST_CODE24}, 5'd16);  // eleven extra bits
         load_data_task(16'd5321);
-        validate_sdht_data({3'b0,`DIST_CODE24, 11'd1224}, 5'd16);		
+        validate_sdht_data({3'b0, 11'd1224, `DIST_CODE24}, 5'd16);		
         load_data_task(16'd6144);
-        validate_sdht_data({3'b0,`DIST_CODE24, 11'd2047}, 5'd16);
+        validate_sdht_data({3'b0, 11'd2047, `DIST_CODE24}, 5'd16);
 
         // Distance between 6145-8192
         load_data_task(16'd6145);
-        validate_sdht_data({3'b0,`DIST_CODE25, 11'd0}, 5'd16);  // eleven extra bits		
+        validate_sdht_data({3'b0, 11'd0, `DIST_CODE25}, 5'd16);  // eleven extra bits		
         load_data_task(16'd6147);
-        validate_sdht_data({3'b0,`DIST_CODE25, 11'd2}, 5'd16);
+        validate_sdht_data({3'b0, 11'd2, `DIST_CODE25}, 5'd16);
         load_data_task(16'd7896);
-        validate_sdht_data({3'b0,`DIST_CODE25, 11'd1751}, 5'd16);
+        validate_sdht_data({3'b0, 11'd1751, `DIST_CODE25}, 5'd16);
         load_data_task(16'd8192);
-        validate_sdht_data({3'b0,`DIST_CODE25, 11'd2047}, 5'd16);
+        validate_sdht_data({3'b0, 11'd2047, `DIST_CODE25}, 5'd16);
 		
         // Distance between 8193-12288
         load_data_task(16'd8193);
-        validate_sdht_data({2'b0,`DIST_CODE26, 12'd0}, 5'd17);  // twelve extra bits		
+        validate_sdht_data({2'b0, 12'd0, `DIST_CODE26}, 5'd17);  // twelve extra bits		
         load_data_task(16'd8199);
-        validate_sdht_data({2'b0,`DIST_CODE26, 12'd6}, 5'd17); 		
+        validate_sdht_data({2'b0, 12'd6, `DIST_CODE26}, 5'd17); 		
         load_data_task(16'd11027);
-        validate_sdht_data({2'b0,`DIST_CODE26, 12'd2834}, 5'd17);		
+        validate_sdht_data({2'b0, 12'd2834, `DIST_CODE26}, 5'd17);		
         load_data_task(16'd12288);
-        validate_sdht_data({2'b0,`DIST_CODE26, 12'd4095}, 5'd17);
+        validate_sdht_data({2'b0, 12'd4095, `DIST_CODE26}, 5'd17);
 
         // Distance between 12289-16384
         load_data_task(16'd12289);
-        validate_sdht_data({2'b0,`DIST_CODE27, 12'd0}, 5'd17);  // twelve extra bits		
+        validate_sdht_data({2'b0, 12'd0, `DIST_CODE27}, 5'd17);  // twelve extra bits		
         load_data_task(16'd14343);
-        validate_sdht_data({2'b0,`DIST_CODE27, 12'd2054}, 5'd17);
+        validate_sdht_data({2'b0, 12'd2054, `DIST_CODE27}, 5'd17);
         load_data_task(16'd15343);
-        validate_sdht_data({2'b0,`DIST_CODE27, 12'd3054}, 5'd17);
+        validate_sdht_data({2'b0, 12'd3054, `DIST_CODE27}, 5'd17);
         load_data_task(16'd16384);
-        validate_sdht_data({2'b0,`DIST_CODE27, 12'd4095}, 5'd17);
+        validate_sdht_data({2'b0, 12'd4095, `DIST_CODE27}, 5'd17);
 
         // Distance between 16385-24576
         load_data_task(16'd16385);
-        validate_sdht_data({1'b0,`DIST_CODE28, 13'd0}, 5'd18);	// thirteen extra bits	
+        validate_sdht_data({1'b0, 13'd0, `DIST_CODE28}, 5'd18);	// thirteen extra bits	
         load_data_task(16'd18385);
-        validate_sdht_data({1'b0,`DIST_CODE28, 13'd2000}, 5'd18);
+        validate_sdht_data({1'b0, 13'd2000, `DIST_CODE28}, 5'd18);
         load_data_task(16'd19385);
-        validate_sdht_data({1'b0,`DIST_CODE28, 13'd3000}, 5'd18);
+        validate_sdht_data({1'b0,  13'd3000, `DIST_CODE28}, 5'd18);
         load_data_task(16'd24576);
-        validate_sdht_data({1'b0,`DIST_CODE28, 13'd8191}, 5'd18);
+        validate_sdht_data({1'b0, 13'd8191, `DIST_CODE28}, 5'd18);
 
         // Distance between 24577-32768 (maximum length of the gzip sliding window)
         load_data_task(16'd24577);
-        validate_sdht_data({1'b0,`DIST_CODE29, 13'd0}, 5'd18);	// thirteen extra bits			
+        validate_sdht_data({1'b0, 13'd0, `DIST_CODE29}, 5'd18);	// thirteen extra bits			
         load_data_task(16'd25677);
-        validate_sdht_data({1'b0,`DIST_CODE29, 13'd1100}, 5'd18);
+        validate_sdht_data({1'b0, 13'd1100, `DIST_CODE29}, 5'd18);
         load_data_task(16'd28677);
-        validate_sdht_data({1'b0,`DIST_CODE29, 13'd4100}, 5'd18);		
+        validate_sdht_data({1'b0, 13'd4100, `DIST_CODE29}, 5'd18);		
         load_data_task(16'd32768);
-        validate_sdht_data({1'b0,`DIST_CODE29, 13'd8191}, 5'd18);
+        validate_sdht_data({1'b0, 13'd8191, `DIST_CODE29}, 5'd18);
 		
         //load_data_task(16'd1);
         //load_data_task(16'd2);
@@ -399,15 +399,9 @@ module sdht_test();
     task validate_sdht_data();
     input [17:0]  sdht_data_merged_exp;
 	input [4 :0]  sdht_valid_bits_exp ;
-    begin
-	    //@(posedge clk);                                 // wait for the module to update its outpus
-		sdht_data_merged_exp_rev = {sdht_data_merged_exp[0 ], sdht_data_merged_exp[1 ], sdht_data_merged_exp[2 ], sdht_data_merged_exp[3 ],
-		                            sdht_data_merged_exp[4 ], sdht_data_merged_exp[5 ], sdht_data_merged_exp[6 ], sdht_data_merged_exp[7 ],
-								    sdht_data_merged_exp[8 ], sdht_data_merged_exp[9 ], sdht_data_merged_exp[10], sdht_data_merged_exp[11],
-								    sdht_data_merged_exp[12], sdht_data_merged_exp[13], sdht_data_merged_exp[14], sdht_data_merged_exp[15],
-								    sdht_data_merged_exp[16], sdht_data_merged_exp[17]};
-									
-		sdht_data_merged_exp_rev = sdht_data_merged_exp_rev >> (5'd18 - sdht_valid_bits_exp);
+    begin	
+		sdht_data_merged_exp_rev = (sdht_data_merged_exp[17:5] << 5)
+		                           | {sdht_data_merged_exp[0], sdht_data_merged_exp[1], sdht_data_merged_exp[2], sdht_data_merged_exp[3], sdht_data_merged_exp[4]};
 		
 		#1;
             test_count <= test_count + 1;

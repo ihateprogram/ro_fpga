@@ -31,7 +31,6 @@ module crc32
     input crc32_valid_in,
 
 	// Module outputs
-	//output reg crc32_valid_out,
 	output [31:0] crc32_out             // 32 bit value of the CRC
     );
  	
