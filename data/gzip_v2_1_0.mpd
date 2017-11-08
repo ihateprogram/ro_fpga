@@ -32,17 +32,17 @@ BUS_INTERFACE BUS = S_AXI, BUS_STD = AXI, BUS_TYPE = SLAVE
 ## AXI Lite Ports
 PORT axi4l_aclk = "", DIR = I, SIGIS = CLK, BUS = S_AXI
 PORT axi4l_aresetn = ARESETN, DIR = I, SIGIS = RST, BUS = S_AXI
-PORT axi4l_awaddr = AWADDR, DIR = I, VEC = [(C_S_AXI_ADDR_WIDTH-1):0], ENDIAN = LITTLE, BUS = S_AXI
+PORT axi4l_awaddr = AWADDR, DIR = I, VEC = [7:0], ENDIAN = LITTLE, BUS = S_AXI
 PORT axi4l_awvalid = AWVALID, DIR = I, BUS = S_AXI
-PORT axi4l_wdata = WDATA, DIR = I, VEC = [(C_S_AXI_DATA_WIDTH-1):0], ENDIAN = LITTLE, BUS = S_AXI
-PORT axi4l_wstrb = WSTRB, DIR = I, VEC = [((C_S_AXI_DATA_WIDTH/8)-1):0], ENDIAN = LITTLE, BUS = S_AXI
+PORT axi4l_wdata = WDATA, DIR = I, VEC = [31:0], ENDIAN = LITTLE, BUS = S_AXI
+PORT axi4l_wstrb = WSTRB, DIR = I, VEC = [3:0], ENDIAN = LITTLE, BUS = S_AXI
 PORT axi4l_wvalid = WVALID, DIR = I, BUS = S_AXI
 PORT axi4l_bready = BREADY, DIR = I, BUS = S_AXI
-PORT axi4l_araddr = ARADDR, DIR = I, VEC = [(C_S_AXI_ADDR_WIDTH-1):0], ENDIAN = LITTLE, BUS = S_AXI
+PORT axi4l_araddr = ARADDR, DIR = I, VEC = [7:0], ENDIAN = LITTLE, BUS = S_AXI
 PORT axi4l_arvalid = ARVALID, DIR = I, BUS = S_AXI
 PORT axi4l_rready = RREADY, DIR = I, BUS = S_AXI
 PORT axi4l_arready = ARREADY, DIR = O, BUS = S_AXI
-PORT axi4l_rdata = RDATA, DIR = O, VEC = [(C_S_AXI_DATA_WIDTH-1):0], ENDIAN = LITTLE, BUS = S_AXI
+PORT axi4l_rdata = RDATA, DIR = O, VEC = [31:0], ENDIAN = LITTLE, BUS = S_AXI
 PORT axi4l_rresp = RRESP, DIR = O, VEC = [1:0], BUS = S_AXI
 PORT axi4l_rvalid = RVALID, DIR = O, BUS = S_AXI
 PORT axi4l_wready = WREADY, DIR = O, BUS = S_AXI
