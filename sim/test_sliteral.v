@@ -266,7 +266,7 @@
 
 
 
-module sliteral_test();
+module test_sliteral;
  
     integer i;
     // Declare input/output variables

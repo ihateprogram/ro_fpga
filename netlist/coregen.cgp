@@ -1,9 +1,22 @@
+# Date: Fri Feb  6 15:15:02 2015
+
+SET addpads = false
+SET asysymbol = false
 SET busformat = BusFormatAngleBracketNotRipped
+SET createndf = false
 SET designentry = Verilog
-SET device = xc6vlx240t
-SET devicefamily = virtex6
-SET flowvendor = Other
-SET package = ff1156
+SET device = xc7z020
+SET devicefamily = zynq
+SET flowvendor = Foundation_ISE
+SET formalverification = false
+SET foundationsym = false
+SET implementationfiletype = Ngc
+SET package = clg484
+SET removerpms = false
+SET simulationfiles = Behavioral
 SET speedgrade = -1
 SET verilogsim = true
 SET vhdlsim = false
+SET workingdirectory = ./tmp/
+
+# CRC: 7ff512d4

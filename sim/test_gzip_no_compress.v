@@ -5,8 +5,6 @@
 
 `timescale 1 ns / 10 ps
 
-`include "../rtl_code/functions.v"
-
 `define NO_COMRESSION      2'b00
 `define FIXED_HUFFMAN      2'b01
 
@@ -14,17 +12,15 @@
 `define BFINAL1            1'b1
 
 
-module test_gzip_no_compress();
+module test_gzip_no_compress;
 
     parameter DATA_WIDTH = 8;
     parameter SEARCH_BUFFER_DEPTH = 8;
     parameter DICTIONARY_DEPTH = 512;
-	parameter DICTIONARY_DEPTH_LOG = clogb2(DICTIONARY_DEPTH);
+	parameter DICTIONARY_DEPTH_LOG = $clog2(DICTIONARY_DEPTH);
 	parameter LOOK_AHEAD_BUFF_DEPTH = 258;
-	parameter CNT_WIDTH = clogb2(LOOK_AHEAD_BUFF_DEPTH);
+	parameter CNT_WIDTH = $clog2(LOOK_AHEAD_BUFF_DEPTH);
 	
-  
-    //integer i;
     // Declare input/output variables
     reg clk;	
     reg rst_n;
@@ -125,7 +121,6 @@ module test_gzip_no_compress();
     wire [31:0] dout_out_fifo_32;  
 	wire empty_out_fifo; 
     wire [32+32+8-1:0] debug_reg;	
-    reg [7:0] i;
     reg [7:0] byte0_in, byte1_in, byte2_in, byte3_in;
     reg reset_fifo;
 	reg [1:0] btype_in;

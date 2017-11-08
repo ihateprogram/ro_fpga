@@ -43,7 +43,7 @@
 `define DIST_CODE28	5'd28
 `define DIST_CODE29	5'd29
 
-
+`define DEPTH_LIMIT1024         // this is used to help synthesys tool to cut unused hardware more efficiently
 
 module sdht
     #(      	
@@ -58,25 +58,19 @@ module sdht
 	input  [DICTIONARY_DEPTH_LOG-1:0]  match_pos_in,
 	
     // Module outputs
-    //output reg [4 :0]  sdht_dist,        // 5 bit distance huffman code
-	//output reg         sdht_data_valid_out,
 	output  [17:0]  sdht_data_merged,   // 18 bits { <5bit Huffman>, 13 bit binary code}
-    output     [4 :0]  sdht_valid_bits     // this output says how many binary encoded bits are valid from the output of the decoder 
+    output  [4 :0]  sdht_valid_bits     // this output says how many binary encoded bits are valid from the output of the decoder 
     );
 	
 	// Module registers
-	reg [DICTIONARY_DEPTH_LOG-1:0] sdht_extra_bits_val;     // 16 bits extra value binary encoded - only 13 bits are used because of the distance ranges
+	reg [12:0] sdht_extra_bits_val;     // 16 bits extra value binary encoded - only 13 bits are used because of the distance ranges
 	reg [3 :0]  sdht_extra_bits_no;                         // number of extra binary bits used for address encoding
 	reg [4 :0]  sdht_dist;
-	//reg [4 :0]  sdht_dist_buff;
-
-	//reg [DICTIONARY_DEPTH_LOG-1:0] sdht_extra_bits_val_buff;     // 16 bits extra value binary encoded - only 13 bits are used because of the distance ranges
-	//reg [3 :0]  sdht_extra_bits_no_buff;                         // number of extra binary bits used for address encoding
-	//reg [4 :0]  sdht_dist_buff;	
+	wire [4 :0]  sdht_dist_rev;
 	
-	reg [17:0]  sdht_data_merged_buff;                      // this buffer is used to reverse bits inside from the distance vector
+	//reg [17:0]  sdht_data_merged_buff;                      // this buffer is used to reverse bits inside from the distance vector
 	
-	wire [17:0]  sdht_data_merged_rev;
+	//wire [17:0]  sdht_data_merged_rev;
 	
     //====================================================================================================================	
 	//================================= Create Huffman codes LUT for input distances =====================================
@@ -224,7 +218,8 @@ module sdht
                             sdht_extra_bits_no <= 8;
                             sdht_extra_bits_val <= match_pos_in - 10'd769;							
     	    	        end
-            
+						
+        `ifndef DEPTH_LIMIT1024 	                              // This has the role to limit the output of the SDHT module to 5+8=13 bits		
                 inbetween(match_pos_in, 16'd1025, 16'd1536)  : begin
 		    	            sdht_dist          <= `DIST_CODE20;
                             sdht_extra_bits_no <= 9;
@@ -284,7 +279,8 @@ module sdht
                             sdht_extra_bits_no  <= 13;
                             sdht_extra_bits_val <= match_pos_in - 15'd24577;							
     	    	        end
-		    
+		`endif
+		
     	    	default     : begin
 		    	            sdht_dist           <= `DIST_CODE0;
                             sdht_extra_bits_no  <= 0;
@@ -300,42 +296,20 @@ module sdht
 	end	
 	endfunction	
 
-	// Store the values of the combinational process in a set of registers
-    /*always @( posedge clk or negedge rst_n)
-    begin
-    	if (!rst_n) begin
-			sdht_extra_bits_no_buff  <= 0;
-			sdht_extra_bits_val_buff <= 0;
-			sdht_dist_buff           <= 0;
-		end     
-	    else begin      
-			sdht_extra_bits_no_buff  <= sdht_extra_bits_no ;
-			sdht_extra_bits_val_buff <= sdht_extra_bits_val;
-			sdht_dist_buff           <= sdht_dist;
-        end			
-    end */
-
-	//assign sdht_valid_bits = 5 + sdht_extra_bits_no_buff; // 5 bits come from Huffman code and the rest of the bits are given according with the current distance
+	
 	assign sdht_valid_bits = 5 + sdht_extra_bits_no; // 5 bits come from Huffman code and the rest of the bits are given according with the current distance
 	
-	// The 13 bits of 0 are used to pad the unused bits from the total bit vector
-	always @(*)
-	begin
-	    //sdht_data_merged <= (18'b0 << sdht_valid_bits) | (sdht_dist_buff << sdht_extra_bits_no_buff) | sdht_extra_bits_val_buff;	-- obsolete
-	    //sdht_data_merged <= (18'b0 << sdht_valid_bits) | (sdht_dist << sdht_extra_bits_no) | sdht_extra_bits_val;	
-	    //sdht_data_merged_buff <= (18'b0 << sdht_valid_bits) | (sdht_dist << sdht_extra_bits_no) | sdht_extra_bits_val;	
-	    sdht_data_merged_buff <= (sdht_dist << sdht_extra_bits_no) | sdht_extra_bits_val;
-	end
+	// The final value of a distance is composed from:  (Extra bits << 5) | Distance Huffman code reversed
+	// This requirement comes from RFC 1951
+	genvar i; 
+    generate 
+       for( i=0; i<=4; i=i+1 ) 
+       begin : reverse_huffman_dist_bits
+          assign sdht_dist_rev[i] = sdht_dist[4-i];
+       end 
+    endgenerate		
 	
-	// Reverse all 13 bits
-	assign sdht_data_merged_rev[17:0] = {sdht_data_merged_buff[0] , sdht_data_merged_buff[1] , sdht_data_merged_buff[2] , sdht_data_merged_buff[3] , 
-	                                     sdht_data_merged_buff[4] , sdht_data_merged_buff[5] , sdht_data_merged_buff[6] , sdht_data_merged_buff[7] ,
-									     sdht_data_merged_buff[8] , sdht_data_merged_buff[9] , sdht_data_merged_buff[10], sdht_data_merged_buff[11],
-									     sdht_data_merged_buff[12], sdht_data_merged_buff[13], sdht_data_merged_buff[14], sdht_data_merged_buff[15],
-	                                     sdht_data_merged_buff[16], sdht_data_merged_buff[17]};
-									 
-	// Align the bits to the right
-	assign sdht_data_merged = sdht_data_merged_rev >> (5'd18 - sdht_valid_bits);
-	//assign sdht_data_merged = sdht_data_merged_buff;
+	assign sdht_data_merged = (sdht_extra_bits_val << 5) | sdht_dist_rev;
+
 	
 endmodule

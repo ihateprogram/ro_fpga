@@ -5,7 +5,7 @@
 
 //`define MAX_LENGTH 9'd258
 
-`define REMOVE_ME
+//`define REMOVE_ME
 
 module lz77_match_filter
     #( 
@@ -27,8 +27,8 @@ module lz77_match_filter
 	output reg [2 :0] lz77_filt_pad_bits, // after all data is written in the output module then the control state machine should pad with zeros until byte boundary
     output reg        lz77_filt_valid,  
     //output reg        lz77_filt_last,
-    output reg [5 :0] lz77_filt_size,     // maximum length can be 32 bits
-	output reg [31:0] lz77_filt_data      // 32 bits of data
+    output reg [6 :0] lz77_filt_size,     // maximum length can be 32 bits
+	output reg [63:0] lz77_filt_data      // 64 bits of data (maximum 40/36 will be used one time)
     );
 
 	// Module parameters
@@ -65,6 +65,9 @@ module lz77_match_filter
 	reg output_enable_in_buff;
 	reg match_length_eq3_with_string;
 	
+	reg previous_match_length3_ff;
+	reg [8:0] previous_match_length3_sliteral_buff;
+	reg [3:0] previous_match_length3_sliteral_valid_bits_buff;
 	
 	wire [4:0] sliteral_valid_bits_sum; 
 	
@@ -203,10 +206,10 @@ module lz77_match_filter
 	// The output corner cases are :   out_en   |   match_length     | Result
 	//                                    0     |        x           | next_symbol[n]
 	//                                    1     |        0           | Output next_symbol[n]  
-	//                                    1     |        1           | Output next_symbol[n-1], next_symbol[n]
-	//                                    1     |        2           | Output next_symbol[n-2], next_symbol[n-1], next_symbol[n]	
-	//                                    1     |        >= 3        | Output next_symbol[n],   match_position, match_position_valid=1
-	//                                    1     |        =MAX_SIZE   | Output next_symbol[n],   match_position, match_position_valid=1 -- FIXME - not sure	
+	//                                    1     |        1           | Output next_symbol[n], next_symbol[n-1]
+	//                                    1     |        2           | Output next_symbol[n], next_symbol[n-1], next_symbol[n-2]
+	//                                    1     |        >= 3        | Output next_symbol[n], match_position, match_position_valid=1
+	//                                    1     |        =MAX_SIZE   | Output next_symbol[n], match_position, match_position_valid=1 -- FIXME - not sure	
 	
     // Sequential part of the state machine
 	always @(posedge clk or negedge rst_n)
@@ -226,10 +229,10 @@ module lz77_match_filter
 		    else                       next_state_decoder = MATCH_EOF;
 		end
 		else if (output_enable_in) begin
-		        if      (match_length_eq0) next_state_decoder = MATCH_LENGTH0;
-		        else if (match_length_eq1) next_state_decoder = MATCH_LENGTH1; 
-		        else if (match_length_eq2) next_state_decoder = MATCH_LENGTH2; 
- 		        else                       next_state_decoder = MATCH_LENGTH3; 
+		       if      (match_length_eq0) next_state_decoder = MATCH_LENGTH0;
+		       else if (match_length_eq1) next_state_decoder = MATCH_LENGTH1; 
+		       else if (match_length_eq2) next_state_decoder = MATCH_LENGTH2; 
+ 		       else                       next_state_decoder = MATCH_LENGTH3; 
             end
         else 
             next_state_decoder = IDLE;		    
@@ -260,7 +263,6 @@ module lz77_match_filter
 				lz77_filt_valid    = 1;
 				
 				lz77_filt_size     = match_length_eq3_with_string ? slit_i0_valid_bits + sliteral_valid_bits_buff1                    : slit_i0_valid_bits;
-				//lz77_filt_data     = match_length_eq3_with_string ? (sliteral_data_buff1 << slit_i0_valid_bits) | slit_i0_data : slit_i0_data;	// OLD version	
 				lz77_filt_data     = match_length_eq3_with_string ? (slit_i0_data << sliteral_valid_bits_buff1) | sliteral_data_buff1 : slit_i0_data;		
 				
 				next_state         = next_state_decoder;
@@ -270,40 +272,51 @@ module lz77_match_filter
 			MATCH_LENGTH1 : begin                   // This treats the case when a character has occured 1 time in the dictionary (even if it is found at multiple positions)
 				
 				`ifdef REMOVE_ME text_lz77_filter ="MATCH_LENGTH1"; `endif
-				lz77_filt_valid    = 1;
-                lz77_filt_size     = slit_i0_valid_bits + sliteral_valid_bits_buff1;								
-				//lz77_filt_data     = (sliteral_data_buff1 << slit_i0_valid_bits) | slit_i0_data;	// OLD version	the order must be reversed
-				lz77_filt_data     = (slit_i0_data << sliteral_valid_bits_buff1) | sliteral_data_buff1;		
-				
-				next_state         = next_state_decoder;
+				lz77_filt_valid   = 1;				
+				if (previous_match_length3_ff) begin // Used for Pointer -> MATCH_LENGTH1 transitions
+                   lz77_filt_size = slit_i0_valid_bits + sliteral_valid_bits_buff1 + previous_match_length3_sliteral_valid_bits_buff;
+				   lz77_filt_data = (((slit_i0_data << sliteral_valid_bits_buff1) | sliteral_data_buff1) << previous_match_length3_sliteral_valid_bits_buff)
+				                    | previous_match_length3_sliteral_buff;	
+				end
+				else begin
+				   lz77_filt_size = slit_i0_valid_bits + sliteral_valid_bits_buff1;
+				   lz77_filt_data = (slit_i0_data << sliteral_valid_bits_buff1) | sliteral_data_buff1;				
+				end 
+				next_state        = next_state_decoder;
 				
 			end
-			
 			
             MATCH_LENGTH2 : begin                   // This treats the case when a 2 character string is found in the dictionary 
 			
 			    `ifdef REMOVE_ME text_lz77_filter ="MATCH_LENGTH2"; `endif
-				lz77_filt_valid    = 1;
-                lz77_filt_size     = slit_i0_valid_bits + sliteral_valid_bits_buff1 + sliteral_valid_bits_buff2;								
-				//lz77_filt_data     = (sliteral_data_buff2 << sliteral_valid_bits_sum) | (sliteral_data_buff1 << slit_i0_valid_bits) | slit_i0_data; // OLD version
-				lz77_filt_data     = (slit_i0_data << sliteral_valid_bits_sum) | (sliteral_data_buff1 << sliteral_valid_bits_buff2) | sliteral_data_buff2 ;
-				
+				lz77_filt_valid   = 1;
+				if (previous_match_length3_ff) begin  // Used for Pointer -> MATCH_LENGTH2 transitions
+                   lz77_filt_size = slit_i0_valid_bits + sliteral_valid_bits_buff1 + sliteral_valid_bits_buff2 + previous_match_length3_sliteral_valid_bits_buff;
+				   lz77_filt_data = (((slit_i0_data << sliteral_valid_bits_sum) | (sliteral_data_buff1 << sliteral_valid_bits_buff2) | sliteral_data_buff2) 
+				                    << previous_match_length3_sliteral_valid_bits_buff) | previous_match_length3_sliteral_buff;
+				end
+				else begin
+                   lz77_filt_size = slit_i0_valid_bits + sliteral_valid_bits_buff1 + sliteral_valid_bits_buff2;
+				   lz77_filt_data = (slit_i0_data << sliteral_valid_bits_sum) | (sliteral_data_buff1 << sliteral_valid_bits_buff2) | sliteral_data_buff2;	
+				end 
 				next_state = next_state_decoder;
-					
+	
 			end
 			
 			MATCH_LENGTH3 : begin                   // If more than 3 characters are found to match then a <length, backward distance> pair is output, 
 			                                        // length is drawn from (3..258) and the distance is drawn from (1 ... 32,768)
 				`ifdef REMOVE_ME text_lz77_filter = "MATCH_LENGTH3"; `endif									 
                 lz77_filt_valid    = 1;
-                /*lz77_filt_size     = gzip_last_symbol_buff ? sdht_valid_bits + slength_valid_bits + 3'd7 : sdht_valid_bits + slength_valid_bits;					
-				lz77_filt_data     = gzip_last_symbol_buff ? (slength_data_out << (sdht_valid_bits + 7)) | sdht_data_merged << 7 | slit_i0_data :
-				                                              (slength_data_out << sdht_valid_bits      ) | sdht_data_merged; */
-
-	            lz77_filt_size     = sdht_valid_bits + slength_valid_bits;					
-				//lz77_filt_data     = (slength_data_out << sdht_valid_bits) | sdht_data_merged;	 // OLD version												  
-				lz77_filt_data     = (sdht_data_merged << slength_valid_bits) | slength_data_out;											  
-
+				if (previous_match_length3_ff) begin  // Used for Pointer -> Pointer transitions
+				    lz77_filt_size = sdht_valid_bits + slength_valid_bits + previous_match_length3_sliteral_valid_bits_buff;
+					lz77_filt_data = (((sdht_data_merged << slength_valid_bits) | slength_data_out) << previous_match_length3_sliteral_valid_bits_buff) 
+					                 | previous_match_length3_sliteral_buff;
+			    end 
+				else begin
+     				lz77_filt_size = sdht_valid_bits + slength_valid_bits; 											  
+				    lz77_filt_data = (sdht_data_merged << slength_valid_bits) | slength_data_out;											  
+                end
+				
 				if (gzip_last_symbol_buff) 
 				    next_state = MATCH_EOF;
 			    else
@@ -316,7 +329,6 @@ module lz77_match_filter
 			    `ifdef REMOVE_ME text_lz77_filter = "MATCH_EOF"; `endif
 				lz77_filt_valid    = 1;
                 lz77_filt_size     = match_length_eq3_with_string ? sliteral_valid_bits_buff1 + 7             : 7;
-				//lz77_filt_data     = match_length_eq3_with_string ? (sliteral_data_buff1 << 7) | slit_i0_data : 7'b0; // OLD version
 				lz77_filt_data     = match_length_eq3_with_string ? (slit_i0_data  << sliteral_valid_bits_buff1) | sliteral_data_buff1 : 7'b0;
 				
 				next_state         = IDLE;
@@ -328,7 +340,34 @@ module lz77_match_filter
         endcase
     end	
 	
-	    
+	// This flop is used for treating the output scenario when 2 pointers are consecutive: MATCH_LENGTH3 -> IDLE -> MATCH_LENGTH3
+	always @(posedge clk or negedge rst_n)
+	begin
+	    if (!rst_n) begin 
+      		previous_match_length3_ff  <= 1'b0;
+		end 		
+		else if (state == MATCH_LENGTH3) begin
+         	previous_match_length3_ff <= 1'b1;
+	    end 
+	    else if (state != MATCH_LENGTH3 && state != IDLE) begin
+		    previous_match_length3_ff <= 1'b0;
+	    end
+	end	
+
+	// These buffers are liked with previous_match_length3_ff for storing the value of the LITERAL from the previous pointer
+	always @(posedge clk or negedge rst_n)
+	begin
+	    if (!rst_n) begin 
+	        previous_match_length3_sliteral_buff            <= 9'd0;
+			previous_match_length3_sliteral_valid_bits_buff <= 4'b0;
+		end 		
+		else if (state == MATCH_LENGTH3) begin
+			previous_match_length3_sliteral_buff            <= slit_i0_data;      // update this value each time a new pointer is detected
+			previous_match_length3_sliteral_valid_bits_buff <= slit_i0_valid_bits;
+	    end
+	end	
+
+	
 	// This is used to count the remainder of all lz77_filt_size during the compression process
 	always @(posedge clk or negedge rst_n)
 	begin
