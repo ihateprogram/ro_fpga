@@ -13,37 +13,37 @@ module gzip
 		parameter DICTIONARY_DEPTH_LOG = 10,
 	    parameter LOOK_AHEAD_BUFF_DEPTH = 66,     // the max length of the GZIP match
 		parameter CNT_WIDTH = 7,                  // The counter size must be changed according to the maximum match length	
-        parameter DEVICE_ID = 8'hB9,
-        parameter REG_INTF_TYPE = 0             //can be 0 (XILLY_LITE) or 1 (XILLY_MEM)	
+        parameter DEVICE_ID = 8'hB9
 	)
     (
     // Module inputs
 	input bus_clock,         // the 2 clock signals
 	input core_clock,
-	
-    // Register interface signals (only one is used, according to REG_INTF_TYPE)
-    //Xillybus Lite interface
-    input           reg_clk,
-    input           reg_wren,
-    input           reg_wstrb,
-    input           reg_rden,
-    output [31:0]   reg_rd_data,
-    input [31:0]    reg_wr_data,
-    input [31:0]    reg_addr,
-    output          reg_irq,
 
-    //Xillybus Mem interface
-    input             user_r_mem_8_rden,
-    output            user_r_mem_8_empty,
-    output     [7:0]  user_r_mem_8_data,
-    output            user_r_mem_8_eof,
-    output            user_r_mem_8_open,
-    input             user_w_mem_8_wren,
-    output            user_w_mem_8_full,
-    input      [7:0]  user_w_mem_8_data,
-    output            user_w_mem_8_open,
-    input      [4:0]  user_mem_8_addr,
-    input             user_mem_8_addr_update,
+    //AXI4-Lite interface
+    input           axi4l_aclk,
+    input           axi4l_aresetn,
+    output          axi4l_awready,
+    input           axi4l_awvalid,
+    input [7:0]     axi4l_awaddr,
+    input [2:0]     axi4l_awprot,
+    output          axi4l_wready,
+    input           axi4l_wvalid,
+    input [31:0]    axi4l_wdata,
+    input [3:0]     axi4l_wstrb,
+    input           axi4l_bready,
+    output          axi4l_bvalid,
+    output  [1:0]   axi4l_bresp,
+    output          axi4l_arready,
+    input           axi4l_arvalid,
+    input [7:0]     axi4l_araddr,
+    input [2:0]     axi4l_arprot,
+    input           axi4l_rready,
+    output          axi4l_rvalid,
+    output  [1:0]   axi4l_rresp,
+    output  [31:0]  axi4l_rdata,
+
+    output          irq,
 
     //input FIFO signals
 	input             in_fifo_open,    // The FIFOs need a special reset to communicate with the Xillybus core independent of the GZIP reset bit	
@@ -61,71 +61,95 @@ module gzip
     );
 
 	// Internal logic
-	wire gzip_rst_n;
-	wire [1:0] btype;	
+	reg gzip_rst_n;
+	reg [1:0] btype;
     wire [95:0] debug_reg;
 	wire reset_fifo;
 	
-   //====================================================================================================================	
-   //======================================== Instantiate the Sync Registers ============================================
-   //====================================================================================================================
-    generate 
-    if(REG_INTF_TYPE == 0) begin: reg_xilly_lite
-        sync_registers #(      	
-            .DEVICE_ID(DEVICE_ID)		
-	    ) sync_registers_i0 (
-           // the 2 clock signals
-	       .clk_dst(core_clock),
-           .clk_src(reg_clk),
-            //interface to host	(in register interface clock domain)
-           .user_r_mem_8_rden(reg_rden),
-           .user_r_mem_8_empty(),
-           .user_r_mem_8_data(reg_rd_data[7:0]),
-           .user_r_mem_8_eof(),
-           .user_r_mem_8_open(),
-           .user_w_mem_8_wren(reg_wren),
-           .user_w_mem_8_full(),
-           .user_w_mem_8_data(reg_wr_data[7:0]),
-           .user_w_mem_8_open(),
-           .user_mem_8_addr(reg_addr[4:0]),
-           .user_mem_8_addr_update(),
-           //interface to compressor (in compressor clock domain)
-	       .debug_reg(debug_reg),
-           .gzip_rst_n(gzip_rst_n),
-	       .btype(btype)		     // Shows how data is compressed
-	                                 //     00 - no compression
-                                     //     01 - compressed with fixed Huffman codes
-        );
-        assign reg_rd_data[31:8] = 0;
-        assign reg_irq = 0;
-    end else if(REG_INTF_TYPE == 1) begin: reg_xilly_mem
-        sync_registers #(      	
-            .DEVICE_ID(DEVICE_ID)		
-	    ) sync_registers_i0 (
-           // the 2 clock signals
-	       .clk_dst(core_clock),
-           .clk_src(bus_clock),
-            //interface to host	(in register interface clock domain)
-           .user_r_mem_8_rden,
-           .user_r_mem_8_empty,
-           .user_r_mem_8_data,
-           .user_r_mem_8_eof,
-           .user_r_mem_8_open,
-           .user_w_mem_8_wren,
-           .user_w_mem_8_full,
-           .user_w_mem_8_data,
-           .user_w_mem_8_open,
-           .user_mem_8_addr,
-           .user_mem_8_addr_update,
-           //interface to compressor (in compressor clock domain)
-	       .debug_reg(debug_reg),
-           .gzip_rst_n(gzip_rst_n),
-	       .btype(btype)		     // Shows how data is compressed
-	                                 //     00 - no compression
-                                     //     01 - compressed with fixed Huffman codes
-        );
+    //register access interface
+    wire            reg_wren;
+    wire            reg_wstrb;
+    wire            reg_rden;
+    wire [31:0]     reg_rd_data;
+    wire [31:0]     reg_wr_data;
+    wire [7:0]      reg_addr;
+    reg             reg_rd_ack;
+    reg             reg_wr_ack;
+
+    //AXI4-Lite Slave Attachment
+    axi4lite_slave #(
+        .ADDR_WIDTH(8),
+        .DATA_WIDTH(32)
+    ) axi4l_slave (
+        //system signals
+        .axi4l_aclk,
+        .axi4l_aresetn,
+        //Write channels
+        //write address
+        .axi4l_awready,
+        .axi4l_awvalid,
+        .axi4l_awaddr,
+        .axi4l_awprot,
+        //write data
+        .axi4l_wready,
+        .axi4l_wvalid,
+        .axi4l_wdata,
+        .axi4l_wstrb,
+        //burst response
+        .axi4l_bready,
+        .axi4l_bvalid,
+        .axi4l_bresp,
+        //Read channels
+        //read address
+        .axi4l_arready,
+        .axi4l_arvalid,
+        .axi4l_araddr,
+        .axi4l_arprot,
+        //read data
+        .axi4l_rready,
+        .axi4l_rvalid,
+        .axi4l_rresp,
+        .axi4l_rdata,
+        //IP-side interface
+        .ip_clk(core_clock),
+        .ip_ren(reg_rden),
+        .ip_wen(reg_wren),
+        .ip_addr(reg_addr),
+        .ip_wstrb(reg_wstrb),
+        .ip_wdata(reg_wr_data),
+        .ip_wack(reg_wr_ack),
+        .ip_rack(reg_rd_ack),
+        .ip_rdata(reg_rd_data),
+        .ip_error(1'b0)//TODO: implment error checking
+    );
+
+    assign irq = 0;
+
+   //=============================================================================================================
+   //======================================== Configuration Registers ============================================
+   //=============================================================================================================
+    always @(posedge core_clock) begin
+        reg_wr_ack <= reg_wren;
+	    if(reg_wr_en)
+            case(reg_addr)
+                0:  gzip_rst_n  <= reg_wr_data[0];
+                1:  btype       <= reg_wr_data[1:0];
+            endcase
     end
-    endgenerate
+
+    always @(posedge core_clock) begin
+        reg_rd_ack <= reg_rden;
+	    if(reg_rd_en)
+            case(reg_addr)
+                0:  reg_rd_data <= {31'd0,gzip_rst_n};
+                1:  reg_rd_data <= {30'd0,btype};
+                2:  reg_rd_data <= {29'd0,debug_reg[2:0]};  // gzip_done, btype_error, block_size_error
+                3:  reg_rd_data <= debug_reg[39:8];         // ISIZE
+                4:  reg_rd_data <= debug_reg[71:40];        // CRC32
+                5:  reg_rd_data <= debug_reg[95:72];        // block_size (24 bits)
+                default: reg_rd_data <= DEVICE_ID;
+            endcase
+    end
 	
    //====================================================================================================================	
    //=========================================== Instantiate the GZIP core ==============================================
