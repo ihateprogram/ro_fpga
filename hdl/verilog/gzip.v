@@ -70,7 +70,7 @@ module gzip
     wire            reg_wren;
     wire            reg_wstrb;
     wire            reg_rden;
-    wire [31:0]     reg_rd_data;
+    reg  [31:0]     reg_rd_data;
     wire [31:0]     reg_wr_data;
     wire [7:0]      reg_addr;
     reg             reg_rd_ack;
@@ -130,7 +130,7 @@ module gzip
    //=============================================================================================================
     always @(posedge core_clock) begin
         reg_wr_ack <= reg_wren;
-	    if(reg_wr_en)
+	    if(reg_wren)
             case(reg_addr)
                 0:  gzip_rst_n  <= reg_wr_data[0];
                 1:  btype       <= reg_wr_data[1:0];
@@ -139,7 +139,7 @@ module gzip
 
     always @(posedge core_clock) begin
         reg_rd_ack <= reg_rden;
-	    if(reg_rd_en)
+	    if(reg_rden)
             case(reg_addr)
                 0:  reg_rd_data <= {31'd0,gzip_rst_n};
                 1:  reg_rd_data <= {30'd0,btype};
