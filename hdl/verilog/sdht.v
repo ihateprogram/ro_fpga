@@ -43,7 +43,7 @@
 `define DIST_CODE28	5'd28
 `define DIST_CODE29	5'd29
 
-`define DEPTH_LIMIT1024
+`define DEPTH_LIMIT1024         // this is used to help synthesys tool to cut unused hardware more efficiently
 
 module sdht
     #(      	
@@ -58,28 +58,19 @@ module sdht
 	input  [DICTIONARY_DEPTH_LOG-1:0]  match_pos_in,
 	
     // Module outputs
-    //output reg [4 :0]  sdht_dist,        // 5 bit distance huffman code
-	//output reg         sdht_data_valid_out,
 	output  [17:0]  sdht_data_merged,   // 18 bits { <5bit Huffman>, 13 bit binary code}
-    output     [4 :0]  sdht_valid_bits     // this output says how many binary encoded bits are valid from the output of the decoder 
+    output  [4 :0]  sdht_valid_bits     // this output says how many binary encoded bits are valid from the output of the decoder 
     );
 	
 	// Module registers
-	reg  [12:0] sdht_extra_bits_val;     // 16 bits extra value binary encoded - only 13 bits are used because of the distance ranges
-	//wire [12:0] sdht_extra_bits_val_rev; // the reversed value of the above signal
-	//wire [12:0] sdht_extra_bits_val_rev_shifted; // the value of the above signal shifted to right according with the number of extra bits
+	reg [12:0] sdht_extra_bits_val;     // 16 bits extra value binary encoded - only 13 bits are used because of the distance ranges
 	reg [3 :0]  sdht_extra_bits_no;                         // number of extra binary bits used for address encoding
 	reg [4 :0]  sdht_dist;
 	wire [4 :0]  sdht_dist_rev;
-	//reg [4 :0]  sdht_dist_buff;
-
-	//reg [DICTIONARY_DEPTH_LOG-1:0] sdht_extra_bits_val_buff;     // 16 bits extra value binary encoded - only 13 bits are used because of the distance ranges
-	//reg [3 :0]  sdht_extra_bits_no_buff;                         // number of extra binary bits used for address encoding
-	//reg [4 :0]  sdht_dist_buff;	
 	
-	reg [17:0]  sdht_data_merged_buff;                      // this buffer is used to reverse bits inside from the distance vector
+	//reg [17:0]  sdht_data_merged_buff;                      // this buffer is used to reverse bits inside from the distance vector
 	
-	wire [17:0]  sdht_data_merged_rev;
+	//wire [17:0]  sdht_data_merged_rev;
 	
     //====================================================================================================================	
 	//================================= Create Huffman codes LUT for input distances =====================================

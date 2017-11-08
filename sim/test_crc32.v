@@ -20,7 +20,6 @@ module test_crc32;
     reg crc32_valid_in;
 
 	// Module outputs
-	wire crc32_valid_out;
 	wire [31:0] crc32_out;
 	
     integer test_count    = 0;
@@ -41,7 +40,6 @@ module test_crc32;
     .crc32_valid_in,
 
 	// Module outputs
-	.crc32_valid_out,
 	.crc32_out                            // 32 bit value of the CRC
     );	
 	
@@ -173,10 +171,9 @@ module test_crc32;
         crc32_in = crc32_in_val;
 		$display($time, " Loading crc32_in = %d", crc32_in);
         @(posedge clk); 
-        crc32_valid_in = 0;
-        //@(posedge clk); 		
+        crc32_valid_in = 0;		
     end
-    endtask //of load_data	
+    endtask 	
 	
     task validate_crc32_data();
     input [31:0]  crc32_out_exp;
@@ -184,16 +181,16 @@ module test_crc32;
 	    //@(posedge clk);                                 // wait for the module to update its outpus
 		#1;
             test_count <= test_count + 1;
-    	if ( (crc32_out_exp ==  crc32_out) && crc32_valid_out==1 ) begin
+    	if ( (crc32_out_exp ==  crc32_out)) begin
     	    success_count <= success_count + 1; 
 			$display($time,"Success at test %d",test_count);
-			$display("            CRC32_OUT=%h, crc32_valid_out=%b", crc32_out, crc32_valid_out);
+			$display("            CRC32_OUT=%h", crc32_out);
     		end
         else begin
             error_count	<= error_count + 1;
 			$display($time,"Error at test %d \n",test_count);
-			$display("            Observed: CRC32_OUT=%h, \n        Expected: CRC32_OUT_EXP=%h \n crc32_valid_out = %b" 
-                     ,crc32_out ,crc32_out_exp ,crc32_valid_out);
+			$display("            Observed: CRC32_OUT=%h, \n        Expected: CRC32_OUT_EXP=%h \n " 
+                     ,crc32_out ,crc32_out_exp);
     		end
         end
     endtask
