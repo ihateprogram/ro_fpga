@@ -131,7 +131,7 @@ module gzip
     always @(posedge core_clock) begin
         reg_wr_ack <= reg_wren;
 	    if(reg_wren)
-            case(reg_addr)
+            case(reg_addr[7:2])
                 0:  gzip_rst_n  <= reg_wr_data[0];
                 1:  btype       <= reg_wr_data[1:0];
             endcase
@@ -140,7 +140,7 @@ module gzip
     always @(posedge core_clock) begin
         reg_rd_ack <= reg_rden;
 	    if(reg_rden)
-            case(reg_addr)
+            case(reg_addr[7:2])
                 0:  reg_rd_data <= {31'd0,gzip_rst_n};
                 1:  reg_rd_data <= {30'd0,btype};
                 2:  reg_rd_data <= {29'd0,debug_reg[2:0]};  // gzip_done, btype_error, block_size_error
