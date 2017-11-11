@@ -17,8 +17,9 @@ module gzip
 	)
     (
     // Module inputs
-	input bus_clock,         // the 2 clock signals
 	input core_clock,
+
+    input bus_reset,
 
     //AXI4-Lite interface
     input           axi4l_aclk,
@@ -45,18 +46,20 @@ module gzip
 
     output          irq,
 
-    //input FIFO signals
-	input             in_fifo_open,    // The FIFOs need a special reset to communicate with the Xillybus core independent of the GZIP reset bit	
-    output            in_fifo_full,
-	input [31:0]      in_fifo_data,
-	input             in_fifo_wren,
+    //input/output FIFO signals
+    input         s_axis_aclk,
+    input  [31:0] s_axis_tdata,
+    input         s_axis_tvalid,
+    output        s_axis_tready,
+    input         s_axis_tlast,
+    input         s_axis_tuser,
 
-    //output FIFO signals
-	input             out_fifo_open,
-	output            out_fifo_empty, 
-	input             out_fifo_rden,                      
-	output [31:0]     out_fifo_data,
-    output            out_fifo_eof
+    input         m_axis_aclk,
+    output [31:0] m_axis_tdata,
+    output        m_axis_tvalid,
+    input         m_axis_tready,
+    output        m_axis_tlast,
+    output        m_axis_tuser
 
     );
 
@@ -64,11 +67,25 @@ module gzip
 	reg gzip_rst_n;
 	reg [1:0] btype;
     wire [95:0] debug_reg;
-	wire reset_fifo;
 	
+    reg out_tvalid;
+    wire [31:0] out_tdata;
+    wire out_tready;
+
+    reg [31:0] out_fifo_data_r;
+    reg out_fifo_rden_r;
+
+    wire        in_fifo_full;
+	wire [31:0] in_fifo_data;
+	wire        in_fifo_wren;
+
+	wire        out_fifo_empty; 
+	wire        out_fifo_rden;                     
+	wire [31:0] out_fifo_data;
+
     //register access interface
     wire            reg_wren;
-    wire            reg_wstrb;
+    wire [3:0]      reg_wstrb;
     wire            reg_rden;
     reg  [31:0]     reg_rd_data;
     wire [31:0]     reg_wr_data;
@@ -154,9 +171,6 @@ module gzip
    //====================================================================================================================	
    //=========================================== Instantiate the GZIP core ==============================================
    //====================================================================================================================
-   
-   assign reset_fifo = ~in_fifo_open & ~out_fifo_open;
-   
    gzip_top
        #(      	
         .DICTIONARY_DEPTH(DICTIONARY_DEPTH),	                 // the size of the GZIP window
@@ -165,11 +179,11 @@ module gzip
       gzip_top_i0
        (
        // Module inputs 
-       .xilly_clk       (bus_clock),	// Xillybus clk signal  
+       .xilly_clk       (core_clock),	// Xillybus clk signal  
        .clk             (core_clock),	// clk signal for all the GZIP logic  
        .rst_n           (gzip_rst_n),   // reset for the GZIP core
     
-       .reset_fifo      (reset_fifo),   // reset for the FIFOs	
+       .reset_fifo      (bus_reset),   // reset for the FIFOs	
        .wr_en_fifo_in   (in_fifo_wren), // write_enable for the input FIFO
        .din_fifo_in     (in_fifo_data), // 32 bit data input
        .rd_en_fifo_out  (out_fifo_rden),// read_enable for the output FIFO
@@ -180,8 +194,72 @@ module gzip
        .full_in_fifo    (in_fifo_full), // shows that we cannot write data in the input FIFO
        .dout_out_fifo_32(out_fifo_data),// 32 bit data output
        .empty_out_fifo  (out_fifo_empty)// shows that we CAN read from the output FIFO
-       );
+       ); 
 
-   assign out_fifo_eof = 0; 
+    //input AXIS adapter
+    axis_async_fifo
+    #(
+        .DEPTH_LOG(5),
+        .TDATA_SIZE(32),
+        .TUSER_SIZE(1)
+    )
+    input_axis_adapter
+    (
+        .aresetn(~bus_reset),
+
+        .s_axis_aclk(s_axis_aclk),
+        .s_axis_tdata(s_axis_tdata),
+        .s_axis_tvalid(s_axis_tvalid),
+        .s_axis_tready(s_axis_tready),
+        .s_axis_tlast(s_axis_tlast),
+        .s_axis_tuser(s_axis_tuser),
+        
+        .m_axis_aclk(core_clock),
+        .m_axis_tdata(in_fifo_data),
+        .m_axis_tvalid(in_fifo_wren),
+        .m_axis_tready(~in_fifo_full),
+        .m_axis_tlast(),
+        .m_axis_tuser()
+    );
+
+    //output AXIS adapter
+    axis_async_fifo
+    #(
+        .DEPTH_LOG(5),
+        .TDATA_SIZE(32),
+        .TUSER_SIZE(1)
+    )
+    output_axis_adapter
+    (
+        .aresetn(~bus_reset),
+
+        .s_axis_aclk(core_clock),
+        .s_axis_tdata(out_tdata),
+        .s_axis_tvalid(out_tvalid),
+        .s_axis_tready(out_tready),
+        .s_axis_tlast(1'b0),
+        .s_axis_tuser(1'b0),
+        
+        .m_axis_aclk(m_axis_aclk),
+        .m_axis_tdata(m_axis_tdata),
+        .m_axis_tvalid(m_axis_tvalid),
+        .m_axis_tready(m_axis_tready),
+        .m_axis_tlast(m_axis_tlast),
+        .m_axis_tuser(m_axis_tuser)
+    );
+
+    //adaptor logic to transfer from gzip to output AXIS FIFO
+    assign out_fifo_rden = out_tready & ~out_fifo_empty;
+    assign out_tdata = out_fifo_rden_r ? out_fifo_data : out_fifo_data_r;
+
+    always @(posedge core_clock) begin
+        out_fifo_rden_r <= out_fifo_rden;
+        if(out_fifo_rden) begin
+            out_fifo_data_r <= out_fifo_data;
+            out_tvalid <= 1;
+        end else if(out_tready) begin
+            out_tvalid <= 0;
+        end
+    end
 
 endmodule

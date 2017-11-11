@@ -1,8 +1,8 @@
 verilog work $XILINX/verilog/src/glbl.v
+verilog work axi4utils/hdl/verilog/axis_async_fifo.v
+verilog work axi4utils/hdl/verilog/axi4lite_slave.v
 verilog work ../hdl/verilog/crc32.v
 verilog work ../hdl/verilog/sdht.v
-verilog work ../hdl/verilog/sync_toggle.v
-verilog work ../hdl/verilog/sync_registers.v
 verilog work ../hdl/verilog/word_merge64.v
 verilog work ../hdl/verilog/sliteral.v
 verilog work ../hdl/verilog/slegth.v
