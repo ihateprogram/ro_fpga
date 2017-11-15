@@ -5,6 +5,8 @@
 
 `timescale 1 ns / 10 ps
 
+`include "../rtl_code/functions.v"
+
 `define NO_COMRESSION      2'b00
 `define FIXED_HUFFMAN      2'b01
 
@@ -12,14 +14,14 @@
 `define BFINAL1            1'b1
 
 
-module test_gzip_compress;
+module test_gzip_compress();
 
     parameter DATA_WIDTH = 8;
     parameter SEARCH_BUFFER_DEPTH = 8;
     parameter DICTIONARY_DEPTH = 512;
-	parameter DICTIONARY_DEPTH_LOG = $clog2(DICTIONARY_DEPTH);
+	parameter DICTIONARY_DEPTH_LOG = clogb2(DICTIONARY_DEPTH);
 	parameter LOOK_AHEAD_BUFF_DEPTH = 258;
-	parameter CNT_WIDTH = $clog2(LOOK_AHEAD_BUFF_DEPTH);
+	parameter CNT_WIDTH = clogb2(LOOK_AHEAD_BUFF_DEPTH);
 	
   
     //integer i;
@@ -135,42 +137,12 @@ module test_gzip_compress;
 	reg     start_test2 = 0;
 	reg     start_test3 = 0;
 	reg     reset_fifo  = 1;
-    /*fifo_32 fifo_64kb_in(
-    	.clk  (clk              ),
-    	.rst  (~rst_n           ),
-    	.din  (data_in_32       ),
-    	.wr_en(wr_en            ),
-    	.rd_en(rd_en),
-    	
-    	.dout (data_out_32      ),
-    	.full (full_in_fifo     ),
-    	.empty(empty_in_fifo    )
-    );	*/
 
-	
-	
-    // Instantiate DUT
-    /*lz77_encoder 
-	    #(.DATA_WIDTH(DATA_WIDTH) ,
-		  .DICTIONARY_DEPTH(DICTIONARY_DEPTH),
-          .CNT_WIDTH(CNT_WIDTH),
-          .DICTIONARY_DEPTH_LOG(DICTIONARY_DEPTH_LOG) 
-		 )
-		lz77_enc
-        (
-        // Module inputs
-        .clk,	
-        .rst_n,
-        .data_valid,
-        .input_data,	
-    
-        // Module outputs
-        .match_position,	
-    	.match_length,
-    	.next_symbol,
-    	.output_enable    
-        );  */
-		
+
+   //====================================================================================================================	
+   //========================================== Instantiate the DUT =====================================================
+   //====================================================================================================================
+   
    gzip_top
         #(      	
             .DICTIONARY_DEPTH(DICTIONARY_DEPTH),
@@ -181,6 +153,7 @@ module test_gzip_compress;
         gzip_top_i0		
         (	
 		// Module inputs
+		.xilly_clk(clk),
         .clk,	
         .rst_n,
 		.btype_in,
@@ -231,7 +204,7 @@ module test_gzip_compress;
 		    feed_input_fifo({"r","e","."," "});*/
 
             // $display($time, "Test phrase= 'That apple is our best apple.' ");			
-			/*feed_input_fifo({{7'b0,`BFINAL1}, 24'd29});            // BFINAL=0, BTYPE=FIXED_HUFFMAN, LENGTH=6 bytes
+			feed_input_fifo({{7'b0,`BFINAL1}, 24'd29});            // BFINAL=0, BTYPE=FIXED_HUFFMAN, LENGTH=6 bytes
 		    feed_input_fifo({"T","h","a","t"}); 
 		    feed_input_fifo({" ","a","p","p"}); 
 		    feed_input_fifo({"l","e"," ","i"}); 
@@ -239,7 +212,7 @@ module test_gzip_compress;
 		    feed_input_fifo({"r"," ","b","e"}); 
 		    feed_input_fifo({"s","t"," ","a"}); 
 		    feed_input_fifo({"p","p","l","e"}); 
-		    feed_input_fifo({"."," "," "," "}); */
+		    feed_input_fifo({"."," "," "," "}); 
 			
 			/*$display($time, "Test phrase= 'Ana are mere. Ovidiu are mere mere.' ");
 			feed_input_fifo({{7'b0,`BFINAL1}, 24'd35});            // BFINAL=0, BTYPE=FIXED_HUFFMAN, LENGTH=18 bytes
@@ -253,7 +226,7 @@ module test_gzip_compress;
 		    feed_input_fifo({"e"," ","m","e"});
 		    feed_input_fifo({"r","e","."," "}); */
 
-			$display($time, "Test phrase= 'Ana are mere. Ovidiu are mere mere Ana.' ");
+			/*$display($time, "Test phrase= 'Ana are mere. Ovidiu are mere mere Ana.' ");
 			feed_input_fifo({{7'b0,`BFINAL1}, 24'd39});            // BFINAL=0, BTYPE=FIXED_HUFFMAN, LENGTH=18 bytes
 		    feed_input_fifo({"A","n","a"," "}); 
 		    feed_input_fifo({"a","r","e"," "}); 
@@ -264,7 +237,7 @@ module test_gzip_compress;
 		    feed_input_fifo({" ","m","e","r"});
 		    feed_input_fifo({"e"," ","m","e"});
 		    feed_input_fifo({"r","e"," ","A"});	
-		    feed_input_fifo({"n","a",".","x"});
+		    feed_input_fifo({"n","a",".","x"}); */
 			
 		    //feed_input_fifo({"c","."," "," "});
 		    /*feed_input_fifo({"e","f",8'd0,8'd0});
@@ -286,31 +259,10 @@ module test_gzip_compress;
 		
 		
 		
-	
-
-		report_test_results;
         $display($time, "************************** GZIP uncompressed test is DONE **************************");		
     end
 
 	
-	
-    // Validate the results of TEST2 - test with automatic validation
-/*	always @(posedge clk)
-	begin
-	    if(start_test2 == 1) begin
-		   if(test_count == 0 && output_enable) validate_lz77_data(match_position, match_length, next_symbol, 0, 0, " ");
-		   if(test_count == 1 && output_enable) validate_lz77_data(match_position, match_length, next_symbol, 0, 0, "s");
-		   if(test_count == 2 && output_enable) validate_lz77_data(match_position, match_length, next_symbol, 0, 0, "h");
-		   if(test_count == 3 && output_enable) validate_lz77_data(match_position, match_length, next_symbol, 0, 0, "e");		   
-		   if(test_count == 4 && output_enable) validate_lz77_data(match_position, match_length, next_symbol, 3, 2, "e");
-		   if(test_count == 5 && output_enable) validate_lz77_data(match_position, match_length, next_symbol, 0, 0, "l");
-		   if(test_count == 6 && output_enable) validate_lz77_data(match_position, match_length, next_symbol, 0, 1, "s");
-		   if(test_count == 7 && output_enable) validate_lz77_data(match_position, match_length, next_symbol, 5, 3, "a");
-		   if(test_count == 8 && output_enable) validate_lz77_data(match_position, match_length, next_symbol, 13, 4,"l");
-		   if(test_count == 9 && output_enable) validate_lz77_data(match_position, match_length, next_symbol, 10, 2,".");
-		end
-    end */
-  
 	// POP the data from the output FIFO 
 	always @(posedge clk)
 	begin
@@ -403,43 +355,5 @@ module test_gzip_compress;
      end
     endtask	
 	
-	
-	//====================================================================================================================
-	//======================================= Tasks for LZ77 automatic validation ========================================
-	//====================================================================================================================
-    task validate_lz77_data();
-    input [DICTIONARY_DEPTH_LOG-1:0] match_position;
-	input [CNT_WIDTH-1:0]            match_length;
-	input [DATA_WIDTH-1:0]           next_symbol;	
-    input [DICTIONARY_DEPTH_LOG-1:0] match_position_exp;
-	input [CNT_WIDTH-1:0]            match_length_exp;
-	input [DATA_WIDTH-1:0]           next_symbol_exp;
-        begin
-            test_count <= test_count + 1;
-    	if( {match_position, match_length, next_symbol} == {match_position_exp, match_length_exp, next_symbol_exp}) begin
-    	    success_count <= success_count + 1; 
-			$display($time,"Success at test %d",test_count);
-			$display("        Output character Tp=%d, Tl=%d, Tn=%s", match_position, match_length, next_symbol);
-    		end
-        else begin
-            error_count	<= error_count + 1;
-			$display($time,"Error at test %d \n",test_count);
-			$display("        Output character Tp=%d, Tl=%d, Tn=%s \n             Expected characters:  Tp=%d, Tl=%d, Tn=%s", match_position, match_length, next_symbol
-			                                                                                            , match_position_exp, match_length_exp, next_symbol_exp);
-    		end
-        end
-    endtask
-
-    task report_test_results();
-        begin       
-	    if (test_count == success_count)  $display("	GZIP TEST finished SUCCESSFULL");
-        else                              $display("	GZIP TEST finished with ERRORS"); 
-            $display("		test_count=%d",test_count);
-            $display("		success_count=%d",success_count);
-            $display("		error_count=%d",error_count);
-        end
-    endtask
-
-
 	
 endmodule
