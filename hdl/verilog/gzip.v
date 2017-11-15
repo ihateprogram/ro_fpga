@@ -13,126 +13,164 @@ module gzip
 		parameter DICTIONARY_DEPTH_LOG = 10,
 	    parameter LOOK_AHEAD_BUFF_DEPTH = 66,     // the max length of the GZIP match
 		parameter CNT_WIDTH = 7,                  // The counter size must be changed according to the maximum match length	
-        parameter DEVICE_ID = 8'hB9,
-        parameter REG_INTF_TYPE = 0             //can be 0 (XILLY_LITE) or 1 (XILLY_MEM)	
+        parameter DEVICE_ID = 8'hB9
 	)
     (
     // Module inputs
-	input bus_clock,         // the 2 clock signals
 	input core_clock,
-	
-    // Register interface signals (only one is used, according to REG_INTF_TYPE)
-    //Xillybus Lite interface
-    input           reg_clk,
-    input           reg_wren,
-    input           reg_wstrb,
-    input           reg_rden,
-    output [31:0]   reg_rd_data,
-    input [31:0]    reg_wr_data,
-    input [31:0]    reg_addr,
-    output          reg_irq,
 
-    //Xillybus Mem interface
-    input             user_r_mem_8_rden,
-    output            user_r_mem_8_empty,
-    output     [7:0]  user_r_mem_8_data,
-    output            user_r_mem_8_eof,
-    output            user_r_mem_8_open,
-    input             user_w_mem_8_wren,
-    output            user_w_mem_8_full,
-    input      [7:0]  user_w_mem_8_data,
-    output            user_w_mem_8_open,
-    input      [4:0]  user_mem_8_addr,
-    input             user_mem_8_addr_update,
+    input bus_reset,
 
-    //input FIFO signals
-	input             in_fifo_open,    // The FIFOs need a special reset to communicate with the Xillybus core independent of the GZIP reset bit	
-    output            in_fifo_full,
-	input [31:0]      in_fifo_data,
-	input             in_fifo_wren,
+    //AXI4-Lite interface
+    input           axi4l_aclk,
+    input           axi4l_aresetn,
+    output          axi4l_awready,
+    input           axi4l_awvalid,
+    input [7:0]     axi4l_awaddr,
+    input [2:0]     axi4l_awprot,
+    output          axi4l_wready,
+    input           axi4l_wvalid,
+    input [31:0]    axi4l_wdata,
+    input [3:0]     axi4l_wstrb,
+    input           axi4l_bready,
+    output          axi4l_bvalid,
+    output  [1:0]   axi4l_bresp,
+    output          axi4l_arready,
+    input           axi4l_arvalid,
+    input [7:0]     axi4l_araddr,
+    input [2:0]     axi4l_arprot,
+    input           axi4l_rready,
+    output          axi4l_rvalid,
+    output  [1:0]   axi4l_rresp,
+    output  [31:0]  axi4l_rdata,
 
-    //output FIFO signals
-	input             out_fifo_open,
-	output            out_fifo_empty, 
-	input             out_fifo_rden,                      
-	output [31:0]     out_fifo_data,
-    output            out_fifo_eof
+    output          irq,
+
+    //input/output FIFO signals
+    input         s_axis_aclk,
+    input  [31:0] s_axis_tdata,
+    input         s_axis_tvalid,
+    output        s_axis_tready,
+    input         s_axis_tlast,
+    input         s_axis_tuser,
+
+    input         m_axis_aclk,
+    output [31:0] m_axis_tdata,
+    output        m_axis_tvalid,
+    input         m_axis_tready,
+    output        m_axis_tlast,
+    output        m_axis_tuser
 
     );
 
 	// Internal logic
-	wire gzip_rst_n;
-	wire [1:0] btype;	
+	reg gzip_rst_n;
+	reg [1:0] btype;
     wire [95:0] debug_reg;
-	wire reset_fifo;
 	
-   //====================================================================================================================	
-   //======================================== Instantiate the Sync Registers ============================================
-   //====================================================================================================================
-    generate 
-    if(REG_INTF_TYPE == 0) begin: reg_xilly_lite
-        sync_registers #(      	
-            .DEVICE_ID(DEVICE_ID)		
-	    ) sync_registers_i0 (
-           // the 2 clock signals
-	       .clk_dst(core_clock),
-           .clk_src(reg_clk),
-            //interface to host	(in register interface clock domain)
-           .user_r_mem_8_rden(reg_rden),
-           .user_r_mem_8_empty(),
-           .user_r_mem_8_data(reg_rd_data[7:0]),
-           .user_r_mem_8_eof(),
-           .user_r_mem_8_open(),
-           .user_w_mem_8_wren(reg_wren),
-           .user_w_mem_8_full(),
-           .user_w_mem_8_data(reg_wr_data[7:0]),
-           .user_w_mem_8_open(),
-           .user_mem_8_addr(reg_addr[4:0]),
-           .user_mem_8_addr_update(),
-           //interface to compressor (in compressor clock domain)
-	       .debug_reg(debug_reg),
-           .gzip_rst_n(gzip_rst_n),
-	       .btype(btype)		     // Shows how data is compressed
-	                                 //     00 - no compression
-                                     //     01 - compressed with fixed Huffman codes
-        );
-        assign reg_rd_data[31:8] = 0;
-        assign reg_irq = 0;
-    end else if(REG_INTF_TYPE == 1) begin: reg_xilly_mem
-        sync_registers #(      	
-            .DEVICE_ID(DEVICE_ID)		
-	    ) sync_registers_i0 (
-           // the 2 clock signals
-	       .clk_dst(core_clock),
-           .clk_src(bus_clock),
-            //interface to host	(in register interface clock domain)
-           .user_r_mem_8_rden,
-           .user_r_mem_8_empty,
-           .user_r_mem_8_data,
-           .user_r_mem_8_eof,
-           .user_r_mem_8_open,
-           .user_w_mem_8_wren,
-           .user_w_mem_8_full,
-           .user_w_mem_8_data,
-           .user_w_mem_8_open,
-           .user_mem_8_addr,
-           .user_mem_8_addr_update,
-           //interface to compressor (in compressor clock domain)
-	       .debug_reg(debug_reg),
-           .gzip_rst_n(gzip_rst_n),
-	       .btype(btype)		     // Shows how data is compressed
-	                                 //     00 - no compression
-                                     //     01 - compressed with fixed Huffman codes
-        );
+    reg out_tvalid;
+    wire [31:0] out_tdata;
+    wire out_tready;
+
+    reg [31:0] out_fifo_data_r;
+    reg out_fifo_rden_r;
+
+    wire        in_fifo_full;
+	wire [31:0] in_fifo_data;
+	wire        in_fifo_wren;
+
+	wire        out_fifo_empty; 
+	wire        out_fifo_rden;                     
+	wire [31:0] out_fifo_data;
+
+    //register access interface
+    wire            reg_wren;
+    wire [3:0]      reg_wstrb;
+    wire            reg_rden;
+    reg  [31:0]     reg_rd_data;
+    wire [31:0]     reg_wr_data;
+    wire [7:0]      reg_addr;
+    reg             reg_rd_ack;
+    reg             reg_wr_ack;
+
+    //AXI4-Lite Slave Attachment
+    axi4lite_slave #(
+        .ADDR_WIDTH(8),
+        .DATA_WIDTH(32)
+    ) axi4l_slave (
+        //system signals
+        .axi4l_aclk,
+        .axi4l_aresetn,
+        //Write channels
+        //write address
+        .axi4l_awready,
+        .axi4l_awvalid,
+        .axi4l_awaddr,
+        .axi4l_awprot,
+        //write data
+        .axi4l_wready,
+        .axi4l_wvalid,
+        .axi4l_wdata,
+        .axi4l_wstrb,
+        //burst response
+        .axi4l_bready,
+        .axi4l_bvalid,
+        .axi4l_bresp,
+        //Read channels
+        //read address
+        .axi4l_arready,
+        .axi4l_arvalid,
+        .axi4l_araddr,
+        .axi4l_arprot,
+        //read data
+        .axi4l_rready,
+        .axi4l_rvalid,
+        .axi4l_rresp,
+        .axi4l_rdata,
+        //IP-side interface
+        .ip_clk(core_clock),
+        .ip_ren(reg_rden),
+        .ip_wen(reg_wren),
+        .ip_addr(reg_addr),
+        .ip_wstrb(reg_wstrb),
+        .ip_wdata(reg_wr_data),
+        .ip_wack(reg_wr_ack),
+        .ip_rack(reg_rd_ack),
+        .ip_rdata(reg_rd_data),
+        .ip_error(1'b0)//TODO: implment error checking
+    );
+
+    assign irq = 0;
+
+   //=============================================================================================================
+   //======================================== Configuration Registers ============================================
+   //=============================================================================================================
+    always @(posedge core_clock) begin
+        reg_wr_ack <= reg_wren;
+	    if(reg_wren)
+            case(reg_addr[7:2])
+                0:  gzip_rst_n  <= reg_wr_data[0];
+                1:  btype       <= reg_wr_data[1:0];
+            endcase
     end
-    endgenerate
+
+    always @(posedge core_clock) begin
+        reg_rd_ack <= reg_rden;
+	    if(reg_rden)
+            case(reg_addr[7:2])
+                0:  reg_rd_data <= {31'd0,gzip_rst_n};
+                1:  reg_rd_data <= {30'd0,btype};
+                2:  reg_rd_data <= {29'd0,debug_reg[2:0]};  // gzip_done, btype_error, block_size_error
+                3:  reg_rd_data <= debug_reg[39:8];         // ISIZE
+                4:  reg_rd_data <= debug_reg[71:40];        // CRC32
+                5:  reg_rd_data <= debug_reg[95:72];        // block_size (24 bits)
+                default: reg_rd_data <= DEVICE_ID;
+            endcase
+    end
 	
    //====================================================================================================================	
    //=========================================== Instantiate the GZIP core ==============================================
    //====================================================================================================================
-   
-   assign reset_fifo = ~in_fifo_open & ~out_fifo_open;
-   
    gzip_top
        #(      	
         .DICTIONARY_DEPTH(DICTIONARY_DEPTH),	                 // the size of the GZIP window
@@ -141,11 +179,11 @@ module gzip
       gzip_top_i0
        (
        // Module inputs 
-       .xilly_clk       (bus_clock),	// Xillybus clk signal  
+       .xilly_clk       (core_clock),	// Xillybus clk signal  
        .clk             (core_clock),	// clk signal for all the GZIP logic  
        .rst_n           (gzip_rst_n),   // reset for the GZIP core
     
-       .reset_fifo      (reset_fifo),   // reset for the FIFOs	
+       .reset_fifo      (bus_reset),   // reset for the FIFOs	
        .wr_en_fifo_in   (in_fifo_wren), // write_enable for the input FIFO
        .din_fifo_in     (in_fifo_data), // 32 bit data input
        .rd_en_fifo_out  (out_fifo_rden),// read_enable for the output FIFO
@@ -156,8 +194,72 @@ module gzip
        .full_in_fifo    (in_fifo_full), // shows that we cannot write data in the input FIFO
        .dout_out_fifo_32(out_fifo_data),// 32 bit data output
        .empty_out_fifo  (out_fifo_empty)// shows that we CAN read from the output FIFO
-       );
+       ); 
 
-   assign out_fifo_eof = 0; 
+    //input AXIS adapter
+    axis_async_fifo
+    #(
+        .DEPTH_LOG(5),
+        .TDATA_SIZE(32),
+        .TUSER_SIZE(1)
+    )
+    input_axis_adapter
+    (
+        .aresetn(~bus_reset),
+
+        .s_axis_aclk(s_axis_aclk),
+        .s_axis_tdata(s_axis_tdata),
+        .s_axis_tvalid(s_axis_tvalid),
+        .s_axis_tready(s_axis_tready),
+        .s_axis_tlast(s_axis_tlast),
+        .s_axis_tuser(s_axis_tuser),
+        
+        .m_axis_aclk(core_clock),
+        .m_axis_tdata(in_fifo_data),
+        .m_axis_tvalid(in_fifo_wren),
+        .m_axis_tready(~in_fifo_full),
+        .m_axis_tlast(),
+        .m_axis_tuser()
+    );
+
+    //output AXIS adapter
+    axis_async_fifo
+    #(
+        .DEPTH_LOG(5),
+        .TDATA_SIZE(32),
+        .TUSER_SIZE(1)
+    )
+    output_axis_adapter
+    (
+        .aresetn(~bus_reset),
+
+        .s_axis_aclk(core_clock),
+        .s_axis_tdata(out_tdata),
+        .s_axis_tvalid(out_tvalid),
+        .s_axis_tready(out_tready),
+        .s_axis_tlast(1'b0),
+        .s_axis_tuser(1'b0),
+        
+        .m_axis_aclk(m_axis_aclk),
+        .m_axis_tdata(m_axis_tdata),
+        .m_axis_tvalid(m_axis_tvalid),
+        .m_axis_tready(m_axis_tready),
+        .m_axis_tlast(m_axis_tlast),
+        .m_axis_tuser(m_axis_tuser)
+    );
+
+    //adaptor logic to transfer from gzip to output AXIS FIFO
+    assign out_fifo_rden = out_tready & ~out_fifo_empty;
+    assign out_tdata = out_fifo_rden_r ? out_fifo_data : out_fifo_data_r;
+
+    always @(posedge core_clock) begin
+        out_fifo_rden_r <= out_fifo_rden;
+        if(out_fifo_rden) begin
+            out_fifo_data_r <= out_fifo_data;
+            out_tvalid <= 1;
+        end else if(out_tready) begin
+            out_tvalid <= 0;
+        end
+    end
 
 endmodule
