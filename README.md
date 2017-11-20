@@ -1,5 +1,17 @@
 # FPGA Gzip implementation using Xillybus.
 
+The internal structure and performance of the compressor circuit is described [in our paper](http://ecai.ro/VOLUME%202017/ECAI-2016%20VOLUMES/YOUNG/ECAI-2017_paper_80.pdf). 
+If our code is useful to your research, please cite our work. To cite this paper in Bibtex, use the following snippet:
+
+```
+@inproceedings{plugariu17gzip,
+  title={FPGA systolic array GZIP compressor},
+  author={PLUGARIU, Ovidiu and GEGIU, Alexandru Dumitru and PETRICA, Lucian},
+  booktitle={Proceedings of the International Conference on Electronics, Computers, and Artificial Intelligence},
+  year={2017}
+}
+```
+
 ## Parameter Description
 
 | Name                  | Default Value | Range     | Notes                                |
@@ -25,3 +37,4 @@ To operate the module, the software must do the following:
 3. Write the command word before a data block on the 32 bit interface.
 4. Write BLOCK_LEN data bytes in the 32 bit interface.
 5. Repeat steps 3 and 4 until all data is compressed.
+
