@@ -557,15 +557,15 @@ module gzip_top
 	// Btype = 01 and block_size > 32768 then we have a error regarding block size.
     always @(posedge clk or negedge rst_n)
 	begin
-	    if (!rst_n)                                                                       block_size_error <= 1'b0;
-		else if (state_block_len && btype_fixed_compression && (block_size > 16'd32768) ) block_size_error <= 1'b1;
-        else if (state_block_len && btype_no_compression    && (block_size > 17'd65536) ) block_size_error <= 1'b1;		
+	    if (!rst_n)                                                   block_size_error <= 1'b0;
+		else if (btype_fixed_compression && (block_size > 16'd32768)) block_size_error <= 1'b1;
+        else if (btype_no_compression    && (block_size > 17'd65536)) block_size_error <= 1'b1;			
     end	
 	
 	always @(posedge clk or negedge rst_n)
 	begin
-	    if (!rst_n)                                                                            btype_error <= 1'b0;
-		else if (state_block_len && ( (!btype_fixed_compression) && (!btype_no_compression)) ) btype_error <= 1'b1;
+	    if (!rst_n)                                                      btype_error <= 1'b0;
+		else if ((!btype_fixed_compression) && (!btype_no_compression))  btype_error <= 1'b1;
     end	
 	
 	// This bit shows that the last block of data has been compressed. This must be software reset.
