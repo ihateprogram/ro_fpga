@@ -6,6 +6,8 @@
 typedef unsigned char uint8_t;
 typedef long int      uint32_t;
 
+#define DEV_ID              0xBA
+
 // Register addresses
 #define RESET_REG           0
 #define BTYPE_REG           1
@@ -27,16 +29,14 @@ typedef long int      uint32_t;
 #define RESET_DIS             0x01
 #define RESET_EN              0x00
 
-#define BTYPE_NO_COMPRESSION  0x00
-#define BTYPE_FIXED_HUFFMAN   0x01
-#define BTYPE_DYNAMIC_HUFFMAN 0x02
-#define BTYPE_UNDEFINED       0x03
+#define BTYPE_NO_COMPRESSION  0x0
+#define BTYPE_FIXED_HUFFMAN   0x1
+#define BTYPE_DYNAMIC_HUFFMAN 0x2
+#define BTYPE_UNDEFINED       0x3
 
 #define GZIP_DONE             1<<2
 #define BTYPE_ERR             1<<1
 #define BSIZE_ERR             1<<0
-
-#define DEV_ID                0xAB
 
 #define BFINAL1               0x01
 #define BFINAL0               0x00
