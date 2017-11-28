@@ -85,7 +85,7 @@ module gzip_top
     // Module outputs 
     output [95:0] debug_reg,	                  // CRC, ISIZE, other signals
     output full_in_fifo,
-	output [31:0] dout_out_fifo_32,  
+	output reg [31:0] dout_out_fifo_32,  
 	output empty_out_fifo
     );
 
@@ -203,18 +203,25 @@ module gzip_top
 	
     // The bytes must be reversed because the PCIE driver will put them on reverse order on the line ABCD -> DCBA.
     // The control logic will take care of this.	
-    fifo_32x512 fifo_in_i0(
-        .rst   (reset_fifo     ),
-        .wr_clk(xilly_clk      ),
-        .rd_clk(clk            ),
-        .din   (din_fifo_in    ),
-        .wr_en (wr_en_fifo_in  ),
-        .rd_en (rd_en_fifo_in  ),
-		
-        .dout  (dout_in_fifo_32),
-        .full  (full_in_fifo   ),
-        .empty (empty_in_fifo  )
-    );	
+    srl_fifo
+    #(
+        .WIDTH(32),
+        .DEPTH_LOG(5),
+        .FALLTHROUGH("false")
+    )
+    fifo_in_i0
+    (
+        .clock  (clk),
+        .reset  (reset_fifo),
+
+        .push   (wr_en_fifo_in),
+        .din    (din_fifo_in),
+        .full   (full_in_fifo),
+
+        .pop    (rd_en_fifo_in),
+        .dout   (dout_in_fifo_32),
+        .empty  (empty_in_fifo)
+    );
 
 	
     //====================================================================================================================	
@@ -771,20 +778,46 @@ module gzip_top
     //====================================================================================================================	
 	//========================================== Instantiate the Output FIFO =============================================
 	//====================================================================================================================
-	
-    // The bytes must be reversed because the PCIE driver will put them on reverse order on the line ABCD -> DCBA.		
-    fifo_64x256 fifo_out_i0(
-       .rst     (reset_fifo      ),
-       .wr_clk  (clk             ),    // the write comes from GZIP domain
-       .rd_clk  (xilly_clk       ),
-       .din     ({gzip_data_out[31:0],gzip_data_out[63:32]}), // The read pointer starts from left for position 0 
-       .wr_en   (wr_en_fifo_out  ),
-       .rd_en   (rd_en_fifo_out  ),
-	   
-       .dout    (dout_out_fifo_32),
-       .full    (full_out_fifo   ),
-       .empty	(empty_out_fifo  )
+    wire rd_en_fifo_out_64;
+    wire empty_out_fifo_64;
+    wire [63:0] dout_out_fifo_64;
+
+	srl_fifo
+    #(
+        .WIDTH(64),
+        .DEPTH_LOG(4),
+        .FALLTHROUGH("true")
+    )
+    fifo_out_i0
+    (
+        .clock  (clk),
+        .reset  (reset_fifo),
+
+        .push   (wr_en_fifo_out),
+        .din    ({gzip_data_out[31:0],gzip_data_out[63:32]}),// The bytes must be reversed because the PCIE driver will put them on reverse order on the line ABCD -> DCBA.		
+        .full   (full_out_fifo),
+
+        .pop    (rd_en_fifo_out_64),
+        .dout   (dout_out_fifo_64),
+        .empty  (empty_out_fifo_64)
     );
 
+    reg dout_out_fifo_64_toggle;
+
+    always @(posedge clk)
+        if(reset_fifo)
+            dout_out_fifo_64_toggle <= 0;
+        else if(rd_en_fifo_out)
+            dout_out_fifo_64_toggle <= ~dout_out_fifo_64_toggle;
+
+    always @(posedge clk)
+        if(rd_en_fifo_out)
+            if(~dout_out_fifo_64_toggle)
+                dout_out_fifo_32 <= dout_out_fifo_64[31:0];
+            else
+                dout_out_fifo_32 <= dout_out_fifo_64[63:32];
+
+    assign empty_out_fifo = empty_out_fifo_64;
+    assign rd_en_fifo_out_64 = dout_out_fifo_64_toggle & rd_en_fifo_out;
 
 endmodule

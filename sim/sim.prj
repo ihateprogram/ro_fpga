@@ -1,6 +1,5 @@
-verilog work $XILINX/verilog/src/glbl.v
-verilog work axi4utils/hdl/verilog/axis_async_fifo.v
-verilog work axi4utils/hdl/verilog/axi4lite_slave.v
+verilog work AXI4Utils/hdl/verilog/axis_async_fifo.v
+verilog work AXI4Utils/hdl/verilog/axi4lite_slave.v
 verilog work ../hdl/verilog/crc32.v
 verilog work ../hdl/verilog/sdht.v
 verilog work ../hdl/verilog/word_merge64.v
@@ -11,9 +10,8 @@ verilog work ../hdl/verilog/lz77_match_filter.v
 verilog work ../hdl/verilog/gzip.v
 verilog work ../hdl/verilog/lz77_encoder.v
 verilog work ../hdl/verilog/priority_encoder.v
+verilog work ../hdl/verilog/srl_fifo.v
 verilog work ../hdl/verilog/gzip_top.v
-verilog work ../netlist/fifo_32x512.v
-verilog work ../netlist/fifo_64x256.v
 verilog work test_crc32.v
 verilog work test_gzip_no_compress.v
 verilog work test_lz77.v
