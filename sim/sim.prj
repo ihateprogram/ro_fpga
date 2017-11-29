@@ -12,6 +12,9 @@ verilog work ../hdl/verilog/lz77_encoder.v
 verilog work ../hdl/verilog/priority_encoder.v
 verilog work ../hdl/verilog/srl_fifo.v
 verilog work ../hdl/verilog/gzip_top.v
+verilog work AXI4Utils/sim/bfm/axi4lite_master_bfm.v
+verilog work AXI4Utils/sim/bfm/axis_master_bfm.v
+verilog work AXI4Utils/sim/bfm/axis_slave_bfm.v
 verilog work test_crc32.v
 verilog work test_gzip_no_compress.v
 verilog work test_lz77.v
