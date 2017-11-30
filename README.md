@@ -24,10 +24,15 @@ If our code is useful to your research, please cite our work. To cite this paper
 
 ## Register Description
 
-| Address | Name    | Default Value | Notes                                    |
-|:--------|:--------|:--------------|:-----------------------------------------|
-| 0       | RST_REG | 0             | Active-low core reset tied to RST_REG[0] |
-| 4       | BTYPE   | 0             | Set to 1 to enable compression           |
+| Address | Name    | Default Value | Notes                                                                 |
+|:--------|:--------|:--------------|:----------------------------------------------------------------------|
+| 0x00       | RST_REG | 0             | Active-low core reset tied to RST_REG[0]                           |
+| 0x04       | BTYPE   | 0             | Set to 1 to enable compression                                     |
+| 0x08       | STATUS  | 0             | 29 zeros at MSB, then GZIP_DONE, BTYPE_ERROR, and BLOCK_SIZE_ERROR |
+| 0x0C       | ISIZE   | 0             | Input (uncompressed) data size, modulo 2^32                        |
+| 0x10       | CRC32   | 0             | Computed CRC (ISO 3309 and ITU-T V.42 compliant)                   |
+| 0x14       | BSIZE   | 0             | Size of the current input data block                               |
+| 0x18       | ID      | B9            | Set to 1 to enable compression                                     |
 
 ## Software Operation
 
