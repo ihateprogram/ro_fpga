@@ -310,6 +310,45 @@ int main()
    check_mem_array_data(BTYPE_ERR, DEBUG_REG1); 
 
 
+   printf("\n\n******************** TEST 5 - CRC Integrity  ********************\n");
+   printf("Check CRC integrity \n");
+   uint8_t expected_data0[] = {0x1 , 0x4, 0x0, 0xfb, 0xff, 0x30, 0x30, 0x30, 0x31, 0xe4, 0xf4, 0x9c, 0x7b, 0x4 , 0x0 , 0x0};
+
+ 
+   //uint8_t expected_data1[] = {0x1, 0x0};    
+   write_mem_array_data(BTYPE_NO_COMPRESSION, BTYPE_REG);
+   check_mem_array_data(BTYPE_NO_COMPRESSION, BTYPE_REG);
+
+   write_mem_array_data(RESET_EN, RESET_REG);
+   write_mem_array_data(RESET_DIS, RESET_REG);
+   check_mem_array_data(RESET_DIS, RESET_REG);
+       
+   fdw = open("/dev/xillybus_write_32",O_WRONLY);
+   fdr = open("/dev/xillybus_read_32", O_RDONLY);    // open the file descriptors
+   send_data_to_fpga(fdw, "0001", 0, BFINAL1, PROCESS_PAYLOAD);
+   //printf("\n******** lungimea %d\n", strlen((char *)data_received));
+  // printf("\n Concatenate = %s", data_received);
+   data_received = read_data_from_fpga(fdr, 16);
+     
+   check_compressed_data(data_received, expected_data0, 16);
+   
+   check_mem_array_data(RESET_DIS, RESET_REG);
+
+   // Check that CRC[31:0] ix 0x7B9CF4E4
+   check_mem_array_data(0x7B, CRC_31_24);
+   check_mem_array_data(0x9C, CRC_23_16);
+   check_mem_array_data(0xF4, CRC_15_8);
+   check_mem_array_data(0xE4, CRC_7_0);
+
+   free(data_received); 
+
+   close(fdw);                                   
+   close(fdr);                                       // close the file descriptors
+   check_mem_array_data(GZIP_DONE, DEBUG_REG1);        // check for the GZIP_DONE bit to be set
+
+
+
+
    printf("\n\n******************** TEST 4 - NO COMPRESSION  ********************\n");
    printf("BTYPE = NO_COMPRESSION  \n");
    uint8_t expected_data1[] = { 0x1 , 0x20, 0x0 , 0xdf, 0xff, 0x54, 0x65, 0x73, 0x74, 0x20, 0x47, 0x5a, 0x49, 0x50, 0x20, 0x63, 0x6f, 0x6d, 0x70, 0x72, 0x65, 0x73, 0x73, 0x69, 0x6f, 0x6e, 0x20, 0x63, 0x6f, 0x72, 0x65, 0x20, 0x54, 0x65, 0x73, 0x74, 0x2e, 0xe8, 0xb2, 0xab, 0x5a, 0x20, 0x0 , 0x0};
@@ -336,9 +375,9 @@ int main()
    close(fdw);                                   
    close(fdr);                                       // close the file descriptors
    check_mem_array_data(GZIP_DONE, DEBUG_REG1);        // check for the GZIP_DONE bit to be set
-#ifdef skip_me   
-#endif 
     
+
+
    printf("\n\n******************** TEST 5 - STATIC HUFFMAN COMPRESSION  ********************\n");
    printf("BTYPE = BTYPE_FIXED_HUFFMAN \n");
    uint8_t expected_data2[] = { 0xb , 0x49, 0x2d, 0x2e, 0x51, 0x70, 0x8f, 0xf2, 0xc , 0x50, 0x48, 0xce, 0xcf, 0x2d, 0x28, 0x4a, 0x2d, 0x2e, 0xce, 0xcc, 0xcf, 0x3 , 0xb2, 0x8b, 0x52, 0x15, 0xe0, 0x52, 0x0 , 0x46, 0x91, 0x10, 0xa0, 0x24, 0x0 , 0x0 };
@@ -363,7 +402,7 @@ int main()
 
    close(fdw);                                   
    close(fdr);                                       // close the file descriptors
-#ifdef skip_me
+#ifdef skip_me   
 #endif
 
    display_test_result ();

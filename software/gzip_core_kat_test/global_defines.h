@@ -22,6 +22,11 @@ typedef long int      uint32_t;
 #define DEBUG_REG8          9
 #define DEBUG_REG9         10
 
+#define CRC_31_24          DEBUG_REG6
+#define CRC_23_16          DEBUG_REG7
+#define CRC_15_8           DEBUG_REG8
+#define CRC_7_0            DEBUG_REG9
+
 #define DEBUG_REV_REG      14
 
 
