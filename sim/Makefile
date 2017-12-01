@@ -6,8 +6,9 @@ EXECUTABLES = $(patsubst %.v,%.exec,$(TESTBENCHES))
 all: $(EXECUTABLES)
 
 %.exec: %.v
-	make -C ../netlist
-	fuse work.$* work.glbl -incremental -prj sim.prj -L unisims_ver -L unimacro_ver -L xilinxcorelib_ver -o $@ > /dev/null
+	git submodule update --init AXI4Utils
+	fuse work.$* -incremental -prj sim.prj -o $@ > /dev/null
 
 clean:
+	git submodule deinit -f -- AXI4Utils
 	-git clean -xfd

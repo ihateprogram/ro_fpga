@@ -9,7 +9,6 @@ lib gzip_v1_00_a word_merge64 verilog
 lib gzip_v1_00_a priority_encoder verilog
 lib gzip_v1_00_a lz77_match_filter verilog
 lib gzip_v1_00_a lz77_encoder verilog
-lib gzip_v1_00_a fifo_32x512 verilog
-lib gzip_v1_00_a fifo_64x256 verilog
+lib gzip_v1_00_a srl_fifo verilog
 lib gzip_v1_00_a gzip_top verilog
 lib gzip_v1_00_a gzip verilog

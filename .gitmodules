@@ -1,0 +1,3 @@
+[submodule "sim/AXI4Utils"]
+	path = sim/AXI4Utils
+	url = git@gitlab.dcae.pub.ro:research/Utils/AXI4Utils.git
