@@ -171,7 +171,7 @@ axis_master_bfm
 #(
     .INPUT_FILE(INPUT_FILE),
     .TDATA_SIZE(32),
-    .ENDIANNESS("big")
+    .ENDIANNESS("little")
 )
 axis_source
 (
@@ -190,7 +190,7 @@ axis_slave_bfm
 #(
     .OUTPUT_FILE(OUTPUT_FILE),
     .TDATA_SIZE(32),
-    .ENDIANNESS("big")
+    .ENDIANNESS("little")
 )
 axis_sink
 (

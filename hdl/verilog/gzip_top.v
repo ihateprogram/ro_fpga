@@ -794,7 +794,7 @@ module gzip_top
         .reset  (reset_fifo),
 
         .push   (wr_en_fifo_out),
-        .din    ({gzip_data_out[31:0],gzip_data_out[63:32]}),// The bytes must be reversed because the PCIE driver will put them on reverse order on the line ABCD -> DCBA.		
+        .din    (gzip_data_out),
         .full   (full_out_fifo),
 
         .pop    (rd_en_fifo_out_64),
