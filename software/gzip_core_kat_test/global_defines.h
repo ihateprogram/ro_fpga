@@ -13,21 +13,21 @@ typedef long int      uint32_t;
 #define BTYPE_REG           1
 #define DEBUG_REG1          2
 
-#define DEBUG_REG2          3
-#define DEBUG_REG3          4
-#define DEBUG_REG4          5
-#define DEBUG_REG5          6
-#define DEBUG_REG6          7
-#define DEBUG_REG7          8
-#define DEBUG_REG8          9
-#define DEBUG_REG9         10
-
-#define CRC_31_24          DEBUG_REG6
-#define CRC_23_16          DEBUG_REG7
-#define CRC_15_8           DEBUG_REG8
-#define CRC_7_0            DEBUG_REG9
-
 #define DEBUG_REV_REG      14
+
+#define ISIZE_31_24        3
+#define ISIZE_23_16        4
+#define ISIZE_15_8         5
+#define ISIZE_7_0          6
+
+#define CRC_31_24          7
+#define CRC_23_16          8
+#define CRC_15_8           9
+#define CRC_7_0            10
+
+#define BLOCK_LEN_23_16    11
+#define BLOCK_LEN_15_8     12
+#define BLOCK_LEN_7_0      13
 
 
 // Define bit values

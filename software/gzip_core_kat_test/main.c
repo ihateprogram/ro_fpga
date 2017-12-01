@@ -334,6 +334,12 @@ int main()
    
    check_mem_array_data(RESET_DIS, RESET_REG);
 
+   // Check that BLOCK_LEN[24:0] is 4
+   check_mem_array_data(0x0, BLOCK_LEN_23_16);
+   check_mem_array_data(0x0, BLOCK_LEN_15_8);
+   check_mem_array_data(0x4, BLOCK_LEN_7_0);
+
+
    // Check that CRC[31:0] ix 0x7B9CF4E4
    check_mem_array_data(0x7B, CRC_31_24);
    check_mem_array_data(0x9C, CRC_23_16);
