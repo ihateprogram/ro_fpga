@@ -48,6 +48,7 @@ module lz77_encoder
 	wire match_position_valid;
 	(* dont_touch = "{true}" *) wire [DATA_WIDTH-1:0] out_reg_PE [0:DICTIONARY_DEPTH-1];  // wires to connect the processing elements
 	(* dont_touch = "{true}" *) wire [DICTIONARY_DEPTH-1:0] match_PE;
+	(* dont_touch = "{true}" *) reg  [DICTIONARY_DEPTH-1:0] match_PE_buff;
 	wire match_length_max;
 	
 	assign next_symbol = input_data;
@@ -106,21 +107,30 @@ module lz77_encoder
 	// Until the first match occurs, the PEs need the match_ff high.
 	// When the output_enable signal is set, it means data is outputed and the search for a new match should start again.
 	assign set_match = output_enable;
-
-
-	/////////////////////////////////////////// Priority encoder which returns the biggest match position in decimal ///////////////////////////////////////////	
+	
+	
+	/////////////////////////////////////////// Priority encoder which returns the biggest match position in decimal ///////////////////////////////////////////
+  
+    // Make a pipeline stage before the priority encoder to limit the size of the combinational circuit
+	always @(posedge clk or negedge rst_n)
+	begin
+	    if(!rst_n) match_PE_buff[DICTIONARY_DEPTH-1:0] <= 0;
+		else       match_PE_buff[DICTIONARY_DEPTH-1:0] <= match_PE[DICTIONARY_DEPTH-1:0];
+	end
+ 
+	
     priority_enc 
        #(
     	    .ENCODER_DEPTH(DICTIONARY_DEPTH),
 			.log2N(DICTIONARY_DEPTH_LOG)
     	)
-		PRIO_ENC
+		PRIO_ENC_i0
     	(
 		    .rst_n,
 			.clk,
-    	    .A_IN(match_PE[DICTIONARY_DEPTH-1:0]),              // Input Vector
-    	    .P(match_position),           // High Priority Index
-    	    .F(match_position_valid)      // This is used when the match is on position 0
+    	    .A_IN(match_PE_buff[DICTIONARY_DEPTH-1:0]),  // Input Vector
+    	    .P(match_position),                          // High Priority Index
+    	    .F(match_position_valid)                     // This is used when the match is on position 0
     	);
 		
 		

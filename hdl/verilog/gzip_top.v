@@ -78,6 +78,7 @@ module gzip_top
 	input        wr_en_fifo_in,
 	input [31:0] din_fifo_in,
 	input        rd_en_fifo_out,
+	input        rev_endianess_in,                // Changes the endianess on I/O FIFOs
 	input [1 :0] btype_in,                        // Shows how data is compressed
 	                                              //     00 - no compression
                                                   //     01 - compressed with fixed Huffman codes
@@ -145,6 +146,12 @@ module gzip_top
 	reg [DATA_WIDTH-1:0]           next_symbol_buf1;
 	reg                            output_enable_buf1;
     reg                            gzip_last_symbol_buf1;
+
+    //reg [DICTIONARY_DEPTH_LOG-1:0] match_position_buf1;
+	reg [CNT_WIDTH-1:0]            match_length_buf2;
+	reg [DATA_WIDTH-1:0]           next_symbol_buf2;
+	reg                            output_enable_buf2;
+    reg                            gzip_last_symbol_buf2;
 	
 	reg [2:0] end_block_cnt;
 	reg load_data_in_lz77;
@@ -187,21 +194,22 @@ module gzip_top
 	wire btype_fixed_compression;
 
     wire        lz77_filt_valid;  
-    //wire        lz77_filt_last,
     wire [6 :0] lz77_filt_size;     // maximum length can be 40 bits
 	wire [63:0] lz77_filt_data;     // 64 bits of data
 	wire [ 2:0] lz77_filt_pad_bits;
 	
 	wire end_block_cnt_max;
-	wire [31:0] dout_out_fifo_32_mixed;
 	
-	
+	wire [31:0] din_fifo_in_mux;
+	wire [31:0] dout_fifo_out_mux;
 	
     //====================================================================================================================	
 	//=========================================== Instantiate the Input FIFO =============================================
 	//====================================================================================================================
 	
-    // The bytes must be reversed because the PCIE driver will put them on reverse order on the line ABCD -> DCBA.
+    // We can control the endianess of the 32bit FIFO input bus, this is making the IP work on any platform
+	assign din_fifo_in_mux = rev_endianess_in ? {din_fifo_in[7:0], din_fifo_in[15:8], din_fifo_in[23:16], din_fifo_in[31:24]} : din_fifo_in;
+		
     // The control logic will take care of this.	
     fifo_32x512 fifo_in_i0(
         .rst   (reset_fifo     ),
@@ -698,6 +706,23 @@ module gzip_top
 			gzip_last_symbol_buf1 <= gzip_last_symbol_buf0;
 	    end
 	end	
+
+	// Add another pipeline stage to preserve coherency between match_position and the other signals. Match position has another pipeline state in the LZ77 encoder
+    always @(posedge clk or negedge rst_n)
+	begin
+	    if(!rst_n) begin
+            match_length_buf2     <= 0;
+            next_symbol_buf2      <= 0;
+            output_enable_buf2    <= 0;
+			gzip_last_symbol_buf2 <= 0;
+	    end 
+	    else begin
+            match_length_buf2     <= match_length_buf1   ;
+            next_symbol_buf2      <= next_symbol_buf1    ;
+            output_enable_buf2    <= output_enable_buf1  ;
+			gzip_last_symbol_buf2 <= gzip_last_symbol_buf1;
+	    end
+	end		
 	
 	
     //====================================================================================================================	
@@ -716,10 +741,10 @@ module gzip_top
         .clk,	
         .rst_n,		
         .match_position  (match_position_buf1  ),
-	    .match_length    (match_length_buf1    ),
-	    .next_symbol     (next_symbol_buf1     ),
-	    .output_enable_in(output_enable_buf1   ),
-        .gzip_last_symbol(gzip_last_symbol_buf1),		
+	    .match_length    (match_length_buf2    ),
+	    .next_symbol     (next_symbol_buf2     ),
+	    .output_enable_in(output_enable_buf2   ),
+        .gzip_last_symbol(gzip_last_symbol_buf2),		
 		
         // Module outputs
 		.lz77_filt_pad_bits,
@@ -772,7 +797,6 @@ module gzip_top
 	//========================================== Instantiate the Output FIFO =============================================
 	//====================================================================================================================
 	
-    // The bytes must be reversed because the PCIE driver will put them on reverse order on the line ABCD -> DCBA.		
     fifo_64x256 fifo_out_i0(
        .rst     (reset_fifo      ),
        .wr_clk  (clk             ),    // the write comes from GZIP domain
@@ -781,10 +805,13 @@ module gzip_top
        .wr_en   (wr_en_fifo_out  ),
        .rd_en   (rd_en_fifo_out  ),
 	   
-       .dout    (dout_out_fifo_32),
+       .dout    (dout_fifo_out_mux), 
        .full    (full_out_fifo   ),
        .empty	(empty_out_fifo  )
     );
+
+    // We can control the endianess of the 32bit FIFO output bus, this is making the IP work on any platform
+	assign dout_out_fifo_32 = rev_endianess_in ? {dout_fifo_out_mux[7:0], dout_fifo_out_mux[15:8], dout_fifo_out_mux[23:16], dout_fifo_out_mux[31:24]} : dout_fifo_out_mux;
 
 
 endmodule

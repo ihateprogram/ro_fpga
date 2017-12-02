@@ -36,6 +36,7 @@ module sync_registers
 	
 	// Module outputs - in GZIP clock domain
     output gzip_rst_n,
+	output rev_endianess,
 	output [1:0] btype		
     );
  	
@@ -48,6 +49,9 @@ module sync_registers
    
    reg [1:0] btype_src_ff;
    reg [1:0] btype_dst_ff[0:1]; // two stage buffer for BTYPE
+
+   reg [1:0] reverse_endianess_src_ff;
+   reg [1:0] reverse_endianess_dst_ff; // two stage buffer for REVERS_ENDIANESS
    
    reg [95:0] debug_reg_src_ff[0:1];   // two stage buffer for debug registers from GZIP domain to Xillybus domain
    
@@ -63,7 +67,7 @@ module sync_registers
         
             if (user_r_mem_8_rden) begin   
                 if     ( user_mem_8_addr == 5'd0 ) user_r_mem_8_data <= {7'b0,mem_array[0][0]};     // RST_N bit
-	        	else if( user_mem_8_addr == 5'd1 ) user_r_mem_8_data <= {6'b0,mem_array[1][1:0]};   // BTYPE[1:0]
+	        	else if( user_mem_8_addr == 5'd1 ) user_r_mem_8_data <= {6'b0,mem_array[1][2:0]};   // REVERS_ENDIANESS, BTYPE[1:0]
 				
 	        	else if( user_mem_8_addr == 5'd2 ) user_r_mem_8_data <= debug_reg_src_ff[1][8*1-1:   0]  ;  // gzip_done, btype_error, block_size_error
 				
@@ -110,15 +114,19 @@ module sync_registers
     //////// Store the value of BTYPE in the clk_src clock domain and then pass it in the clk_dst clock domain	
 	always @(posedge clk_src)
 	begin
-	    btype_src_ff <= mem_array[1][1:0];	
+	    btype_src_ff             <= mem_array[1][1:0];
+		reverse_endianess_src_ff <= mem_array[1][2];
 	end
    
     always @(posedge clk_dst)
     begin
-        btype_dst_ff[0][1:0] <= btype_src_ff[1:0];
-        btype_dst_ff[1][1:0] <= btype_dst_ff[0][1:0];
+        btype_dst_ff[0][1:0]        <= btype_src_ff[1:0];           // buffers for BTYPE
+        btype_dst_ff[1][1:0]        <= btype_dst_ff[0][1:0];
+		reverse_endianess_dst_ff[0] <= reverse_endianess_src_ff;    // buffers for REVERS_ENDIANESS
+		reverse_endianess_dst_ff[1] <= reverse_endianess_dst_ff[0];
     end    
     assign btype[1:0] = btype_dst_ff[1][1:0];   
+    assign rev_endianess = reverse_endianess_dst_ff[1]; 
    
     /////// Sync the value of the DEBUG registers from GZIP clock domain to Xillybus clock domain
     always @(posedge clk_src)

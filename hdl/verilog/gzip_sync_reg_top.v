@@ -52,6 +52,7 @@ module gzip_sync_reg_top
 	wire [1:0] btype;	
     wire [95:0] debug_reg;
 	wire reset_fifo;
+	wire rev_endianess;
 	
    //====================================================================================================================	
    //======================================== Instantiate the Sync Registers ============================================
@@ -87,6 +88,7 @@ module gzip_sync_reg_top
 	   
 	   // Module outputs - in GZIP clock domain
        .gzip_rst_n,
+	   .rev_endianess,                           // Changes the endianess on I/O FIFOs
 	   .btype		                             // Shows how data is compressed
 	                                             //     00 - no compression
                                                  //     01 - compressed with fixed Huffman codes
@@ -117,6 +119,7 @@ module gzip_sync_reg_top
        .wr_en_fifo_in ,        // write_enable for the input FIFO
        .din_fifo_in   ,        // 32 bit data input
        .rd_en_fifo_out,        // read_enable for the output FIFO
+	   .rev_endianess_in(rev_endianess),
        .btype_in      (btype),                       // Compression mode:	00 - no compression
                                                      //                     01 - compressed with fixed Huffman codes
        // Module outputs
