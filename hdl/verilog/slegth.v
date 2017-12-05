@@ -1,10 +1,17 @@
 
-// This file is a Static Length Huffman Tree. These codes represent the length values between 0-258
-// which are Huffman encoded. The final value of the code is a concatenation between the huffman ecoded value and the binary 
-// value given by the offset of the distance in the lenght ranges.
-// Minimum decoded length is 3 and the maximum is 258.
-// We will use a lower range because for normal english texts the the length of a sequence rarely exceeds 64.
-// Synthesys will remove the unused logic from the table if the maximum length is smaller than 258.
+/*  
+Title:            Static Length Huffman tree
+Author:                                     Ovidiu Plugariu
+
+Description:  This file is a Static Length Huffman Tree. These codes represent the length values between 0-258
+            which are Huffman encoded. The final value of the code is a concatenation between the huffman ecoded value and the binary 
+            value given by the offset of the distance in the lenght ranges.
+            Minimum decoded length is 3 and the maximum is 258.
+            We will use a lower range because for normal english texts the the length of a sequence rarely exceeds 64.
+            Synthesys will remove the unused logic from the table if the maximum length is smaller than 258.
+*/
+
+
 
 // Codes from 257-279 have 7 bits
 // Codes from 280-287 have 8 bits 
@@ -40,7 +47,7 @@
 `define LEN_CODE286 8'd198
 `define LEN_CODE287 8'd199
 
-`define LENGTH_LIMIT66
+//`define LENGTH_LIMIT66
 
 module slength
     (
@@ -50,7 +57,7 @@ module slength
 	input  [8:0] match_length_in,              // 9bits: 3 <= match_length  <= 258
 	
     // Module outputs
-	output [12:0] slength_data_out,        // 13 bits { <7/8bit Huffman>, 5 extra bit binary code}
+	output [12:0] slength_data_out,        // 13 bits {5 extra bit binary code, <7/8bit Huffman>} , Huffman codes are bit reversed
     output [3 :0] slength_valid_bits       // this output says how many binary encoded bits are valid from the output of the decoder 
     );
 	
@@ -61,17 +68,10 @@ module slength
 	wire[7 :0]  slength_huff_rev;              // the reversed value of the Huffman length value
     wire        slength_huff_shift_right;      // this si used to show if the length Huffman code has to be shifted 1 bit to the right
 	
-	
-	//reg [8 :0]  slength_extra_bits_val_buff;  
-	//reg [2 :0]  slength_extra_bits_no_buff;
-	
-	reg [12:0]  slength_data_merged;
 	reg [8 :0]  match_length_in_buff; 
-	
-	
+
 	// Combinational logic
     wire [3:0] slength_huff_len;
-	wire [12:0] slength_data_out_reversed;
 	
     //====================================================================================================================	
 	//===================================== Create Huffman codes LUT for lengths =========================================
