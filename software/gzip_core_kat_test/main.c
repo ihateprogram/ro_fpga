@@ -10,7 +10,7 @@
 //#include "xilly_debug.h"
 
 //#include "crypto_ovi.h"
-#include "test_vectors.h"
+//#include "test_vectors.h"
 #include "fpga_functions.h"
 #include "global_defines.h"
 
@@ -236,19 +236,6 @@ uint8_t* read_data_from_fpga(int fd, uint32_t rd_len)
 }
 
 
-/*void offload_data_to_fpga(unsigned char data_in[], unsigned char data_out[], unsigned char option)
-{
-   int fdw, fdr;   
-   fdw = open("/dev/xillybus_write_32",O_WRONLY);
-   fdr = open("/dev/xillybus_read_32", O_RDONLY);    // open the file descriptors
-   send_data_to_fpga(fdw, data_in, option);
-   //read_data_from_fpga(fdr, data_out); 
-   close(fdr);                                       // close the file descriptors
-   close(fdw);                                       
-} */
-
-
-
 void display_test_result ()
 {
    printf("\n\n\n=========================== KAT STATISTICS ==========================\n");
@@ -280,7 +267,6 @@ int main()
    check_mem_array_data(DEV_ID, DEBUG_REV_REG);
        
 
-#ifdef skip_me   
    printf("\n\n******************** TEST 1 - BSIZE_ERR for NO_COMPRESSION  ********************\n");
    printf("\tBLOCK_SIZE = 65537\n");
    write_mem_array_data(BTYPE_NO_COMPRESSION, BTYPE_REG);
@@ -309,23 +295,26 @@ int main()
 
    printf("\n\n******************** TEST 3 - BTYPE_ERR  ********************\n");
    printf("\tBTYPE = DYNAMIC_HUFFMAN\n");
-   write_mem_array_data(BTYPE_DYNAMIC_HUFFMAN, BTYPE_REG);
-   check_mem_array_data(BTYPE_DYNAMIC_HUFFMAN, BTYPE_REG);
    write_mem_array_data(RESET_EN, RESET_REG);
    write_mem_array_data(RESET_DIS, RESET_REG);
    check_mem_array_data(RESET_DIS, RESET_REG);
+   write_mem_array_data(BTYPE_DYNAMIC_HUFFMAN, BTYPE_REG);  // Check that the register is read/write
+   check_mem_array_data(BTYPE_DYNAMIC_HUFFMAN, BTYPE_REG);
+   write_mem_array_data(BTYPE_UNDEFINED, BTYPE_REG);
+   check_mem_array_data(BTYPE_UNDEFINED, BTYPE_REG);
        
    fdw = open("/dev/xillybus_write_32",O_WRONLY);
    send_data_to_fpga(fdw, test_in, 3, BFINAL1, IGNORE_PAYLOAD);
    close(fdw);                                   
  
    check_mem_array_data(BTYPE_ERR, DEBUG_REG1); 
-#endif 
 
 
-   printf("\n\n******************** TEST 4 - FIXED TYPE COMPRESSION  ********************\n");
-   printf("BTYPE = NO_COMPRESSION  \n");
-   uint8_t expected_data1[] = {0x1 , 0x0 , 0x4 , 0xff, 0xfb, 0x31, 0x32, 0x33, 0x34, 0x9b, 0xe3, 0xe0, 0xa3, 0x0 , 0x0 , 0x0 , 0x4 , 0x0 , 0x0 , 0x0};    
+   printf("\n\n******************** TEST 5 - CRC Integrity  ********************\n");
+   printf("Check CRC integrity \n");
+   uint8_t expected_data0[] = {0x1 , 0x4, 0x0, 0xfb, 0xff, 0x30, 0x30, 0x30, 0x31, 0xe4, 0xf4, 0x9c, 0x7b, 0x4 , 0x0 , 0x0};
+
+ 
    //uint8_t expected_data1[] = {0x1, 0x0};    
    write_mem_array_data(BTYPE_NO_COMPRESSION, BTYPE_REG);
    check_mem_array_data(BTYPE_NO_COMPRESSION, BTYPE_REG);
@@ -336,12 +325,56 @@ int main()
        
    fdw = open("/dev/xillybus_write_32",O_WRONLY);
    fdr = open("/dev/xillybus_read_32", O_RDONLY);    // open the file descriptors
-   send_data_to_fpga(fdw, "1234", 0, BFINAL1, PROCESS_PAYLOAD);
+   send_data_to_fpga(fdw, "0001", 0, BFINAL1, PROCESS_PAYLOAD);
    //printf("\n******** lungimea %d\n", strlen((char *)data_received));
   // printf("\n Concatenate = %s", data_received);
-   data_received = read_data_from_fpga(fdr, 20);
+   data_received = read_data_from_fpga(fdr, 16);
      
-   check_compressed_data(data_received, expected_data1, 20);
+   check_compressed_data(data_received, expected_data0, 16);
+   
+   check_mem_array_data(RESET_DIS, RESET_REG);
+
+   // Check that BLOCK_LEN[24:0] is 4
+   check_mem_array_data(0x0, BLOCK_LEN_23_16);
+   check_mem_array_data(0x0, BLOCK_LEN_15_8);
+   check_mem_array_data(0x4, BLOCK_LEN_7_0);
+
+
+   // Check that CRC[31:0] ix 0x7B9CF4E4
+   check_mem_array_data(0x7B, CRC_31_24);
+   check_mem_array_data(0x9C, CRC_23_16);
+   check_mem_array_data(0xF4, CRC_15_8);
+   check_mem_array_data(0xE4, CRC_7_0);
+
+   free(data_received); 
+
+   close(fdw);                                   
+   close(fdr);                                       // close the file descriptors
+   check_mem_array_data(GZIP_DONE, DEBUG_REG1);        // check for the GZIP_DONE bit to be set
+
+
+
+
+   printf("\n\n******************** TEST 4 - NO COMPRESSION  ********************\n");
+   printf("BTYPE = NO_COMPRESSION  \n");
+   uint8_t expected_data1[] = { 0x1 , 0x20, 0x0 , 0xdf, 0xff, 0x54, 0x65, 0x73, 0x74, 0x20, 0x47, 0x5a, 0x49, 0x50, 0x20, 0x63, 0x6f, 0x6d, 0x70, 0x72, 0x65, 0x73, 0x73, 0x69, 0x6f, 0x6e, 0x20, 0x63, 0x6f, 0x72, 0x65, 0x20, 0x54, 0x65, 0x73, 0x74, 0x2e, 0xe8, 0xb2, 0xab, 0x5a, 0x20, 0x0 , 0x0};
+
+   //uint8_t expected_data1[] = {0x1, 0x0};    
+   write_mem_array_data(BTYPE_NO_COMPRESSION, BTYPE_REG);
+   check_mem_array_data(BTYPE_NO_COMPRESSION, BTYPE_REG);
+
+   write_mem_array_data(RESET_EN, RESET_REG);
+   write_mem_array_data(RESET_DIS, RESET_REG);
+   check_mem_array_data(RESET_DIS, RESET_REG);
+       
+   fdw = open("/dev/xillybus_write_32",O_WRONLY);
+   fdr = open("/dev/xillybus_read_32", O_RDONLY);    // open the file descriptors
+   send_data_to_fpga(fdw, "Test GZIP compression core Test.", 0, BFINAL1, PROCESS_PAYLOAD);
+   //printf("\n******** lungimea %d\n", strlen((char *)data_received));
+  // printf("\n Concatenate = %s", data_received);
+   data_received = read_data_from_fpga(fdr, 44);
+     
+   check_compressed_data(data_received, expected_data1, 44);
    
    free(data_received); 
 
@@ -350,50 +383,11 @@ int main()
    check_mem_array_data(GZIP_DONE, DEBUG_REG1);        // check for the GZIP_DONE bit to be set
     
 
-#ifdef skip_me
-   printf("\n\n******************** TEST 5 - FIXED TYPE COMPRESSION  ********************\n");
-   printf("BTYPE = NO_COMPRESSION  \n");
- 
-   uint8_t expected_data2[]={0x0 ,0x0 ,0x3 ,0xff,0xfc,0x41,0x42,0x43,0x0 ,0x0 ,0x4 ,0xff,0xfb,0x45,
-   0x46,0x47,0x48,0x0 ,0x0 ,0x5 ,0xff,0xfa,0x31,0x32,0x33,0x34,0x35,0x1 ,0x0 ,0x6 ,0xff,
-   0xf9,0x36,0x37,0x38,0x39,0x31,0x30,0x5c,0x9f,0xc5,0x6e,0x0 ,0x0 ,0x0 ,0x12};
 
-  //uint8_t expected_data1[] = {0x1, 0x0};
-   write_mem_array_data(BTYPE_NO_COMPRESSION, BTYPE_REG);
-   check_mem_array_data(BTYPE_NO_COMPRESSION, BTYPE_REG);
+   printf("\n\n******************** TEST 5 - STATIC HUFFMAN COMPRESSION  ********************\n");
+   printf("BTYPE = BTYPE_FIXED_HUFFMAN \n");
+   uint8_t expected_data2[] = { 0xb , 0x49, 0x2d, 0x2e, 0x51, 0x70, 0x8f, 0xf2, 0xc , 0x50, 0x48, 0xce, 0xcf, 0x2d, 0x28, 0x4a, 0x2d, 0x2e, 0xce, 0xcc, 0xcf, 0x3 , 0xb2, 0x8b, 0x52, 0x15, 0xe0, 0x52, 0x0 , 0x46, 0x91, 0x10, 0xa0, 0x24, 0x0 , 0x0 };
 
-   write_mem_array_data(RESET_EN, RESET_REG);
-   write_mem_array_data(RESET_DIS, RESET_REG);
-   check_mem_array_data(RESET_DIS, RESET_REG);
-
-   fdw = open("/dev/xillybus_write_32",O_WRONLY);
-   fdr = open("/dev/xillybus_read_32", O_RDONLY);    // open the file descriptors
-   send_data_to_fpga(fdw, "ABC", 0, BFINAL0, PROCESS_PAYLOAD);
-   send_data_to_fpga(fdw, "EFGH", 0, BFINAL0, PROCESS_PAYLOAD);
-   send_data_to_fpga(fdw, "12345", 0, BFINAL0, PROCESS_PAYLOAD);
-   send_data_to_fpga(fdw, "678910", 0, BFINAL1, PROCESS_PAYLOAD);
-   //printf("\n******** lungimea %d\n", strlen((char *)data_received));
-   // printf("\n Concatenate = %s", data_received);
-   data_received = read_data_from_fpga(fdr, 46);
-
-   check_compressed_data(data_received, expected_data2, 46);
-
-   free(data_received);
-
-   close(fdw);
-   close(fdr);                                       // close the file descriptors
-   check_mem_array_data(GZIP_DONE, DEBUG_REG1);        // check for the GZIP_DONE bit to be set
-
-#endif skip_me
-
-  /* printf("\n\n******************** TEST 6 - STATIC HUFFMAN TYPE COMPRESSION  ********************\n");
-   printf("BTYPE = BTYPE_FIXED_HUFFMAN  \n");
-
-   //uint8_t expected_data2[]={0x0 ,0x0 ,0x3 ,0xff,0xfc,0x41,0x42,0x43,0x0 ,0x0 ,0x4 ,0xff,0xfb,0x45,
-   //0x46,0x47,0x48,0x0 ,0x0 ,0x5 ,0xff,0xfa,0x31,0x32,0x33,0x34,0x35,0x1 ,0x0 ,0x6 ,0xff,
-   //0xf9,0x36,0x37,0x38,0x39,0x31,0x30,0x5c,0x9f,0xc5,0x6e,0x0 ,0x0 ,0x0 ,0x12};
-
-  //uint8_t expected_data1[] = {0x1, 0x0};
    write_mem_array_data(BTYPE_FIXED_HUFFMAN, BTYPE_REG);
    check_mem_array_data(BTYPE_FIXED_HUFFMAN, BTYPE_REG);
 
@@ -403,19 +397,19 @@ int main()
 
    fdw = open("/dev/xillybus_write_32",O_WRONLY);
    fdr = open("/dev/xillybus_read_32", O_RDONLY);    // open the file descriptors
-   send_data_to_fpga(fdw, "Deflate ", 0, BFINAL1, PROCESS_PAYLOAD);
+   send_data_to_fpga(fdw, "Test GZIP compression core Test GZIP", 0, BFINAL1, PROCESS_PAYLOAD);
+   //printf("\n******** lungimea %d\n", strlen((char *)data_received));
+  // printf("\n Concatenate = %s", data_received);
+   data_received = read_data_from_fpga(fdr, 36);
+     
+   check_compressed_data(data_received, expected_data2, 36);
    
-   data_received = read_data_from_fpga(fdr, 20);
+   free(data_received); 
 
-   //check_compressed_data(data_received, expected_data2, 46);
-
-   free(data_received);
-
-   close(fdw);
+   close(fdw);                                   
    close(fdr);                                       // close the file descriptors
-   check_mem_array_data(GZIP_DONE, DEBUG_REG1);        // check for the GZIP_DONE bit to be set
-   */
-
+#ifdef skip_me   
+#endif
 
    display_test_result ();
 
