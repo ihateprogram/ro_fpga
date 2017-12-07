@@ -28,23 +28,21 @@ module priority_enc
 	
     function [log2N:0] priority_enc;
     input [ENCODER_DEPTH-1:0] A;
-    reg F;
     integer I;
     begin
-        F = 1'b0;
         priority_enc = 0; //{ENCODER_DEPTH{1'b0}};
         for (I=0; I<ENCODER_DEPTH; I=I+1)
             if (A[I])
             begin
-                F = 1'b1;
-                priority_enc = {I, F}; // Override previous index
+                priority_enc = I; // Override previous index
             end
         end
     endfunction
 
-    always @(A)
+    always @*
     begin
-        {P, F} <= priority_enc(A);
+        P = priority_enc(A);
+        F = |A;
     end
 	
 endmodule

@@ -48,7 +48,6 @@ module lz77_encoder
 	wire match_position_valid;
 	(* dont_touch = "{true}" *) wire [DATA_WIDTH-1:0] out_reg_PE [0:DICTIONARY_DEPTH-1];  // wires to connect the processing elements
 	(* dont_touch = "{true}" *) wire [DICTIONARY_DEPTH-1:0] match_PE;
-	(* dont_touch = "{true}" *) reg  [DICTIONARY_DEPTH-1:0] match_PE_buff;
 	wire match_length_max;
 	
 	assign next_symbol = input_data;
@@ -110,29 +109,124 @@ module lz77_encoder
 	
 	
 	/////////////////////////////////////////// Priority encoder which returns the biggest match position in decimal ///////////////////////////////////////////
-  
-    // Make a pipeline stage before the priority encoder to limit the size of the combinational circuit
-	always @(posedge clk or negedge rst_n)
-	begin
-	    if(!rst_n) match_PE_buff[DICTIONARY_DEPTH-1:0] <= 0;
-		else       match_PE_buff[DICTIONARY_DEPTH-1:0] <= match_PE[DICTIONARY_DEPTH-1:0];
-	end
- 
-	
+    wire [DICTIONARY_DEPTH_LOG-3:0] match_position_0;
+    wire [DICTIONARY_DEPTH_LOG-3:0] match_position_1;
+    wire [DICTIONARY_DEPTH_LOG-3:0] match_position_2;
+    wire [DICTIONARY_DEPTH_LOG-3:0] match_position_3;
+    reg [DICTIONARY_DEPTH_LOG-3:0] match_position_0_reg;
+    reg [DICTIONARY_DEPTH_LOG-3:0] match_position_1_reg;
+    reg [DICTIONARY_DEPTH_LOG-3:0] match_position_2_reg;
+    reg [DICTIONARY_DEPTH_LOG-3:0] match_position_3_reg;
+    wire match_position_valid_0;
+    wire match_position_valid_1;
+    wire match_position_valid_2;
+    wire match_position_valid_3;
+    reg match_position_valid_0_reg;
+    reg match_position_valid_1_reg;
+    reg match_position_valid_2_reg;
+    reg match_position_valid_3_reg;
+
     priority_enc 
        #(
-    	    .ENCODER_DEPTH(DICTIONARY_DEPTH),
-			.log2N(DICTIONARY_DEPTH_LOG)
+    	    .ENCODER_DEPTH(DICTIONARY_DEPTH/4),
+			.log2N(DICTIONARY_DEPTH_LOG-2)
     	)
 		PRIO_ENC_i0
     	(
 		    .rst_n,
 			.clk,
-    	    .A_IN(match_PE_buff[DICTIONARY_DEPTH-1:0]),  // Input Vector
-    	    .P(match_position),                          // High Priority Index
-    	    .F(match_position_valid)                     // This is used when the match is on position 0
+    	    .A_IN(match_PE[DICTIONARY_DEPTH/4-1:0]),  // Input Vector
+    	    .P(match_position_0),                          // High Priority Index
+    	    .F(match_position_valid_0)                     // This is used when the match is on position 0
+    	);
+
+    priority_enc 
+       #(
+    	    .ENCODER_DEPTH(DICTIONARY_DEPTH/4),
+			.log2N(DICTIONARY_DEPTH_LOG-2)
+    	)
+		PRIO_ENC_i1
+    	(
+		    .rst_n,
+			.clk,
+    	    .A_IN(match_PE[2*DICTIONARY_DEPTH/4-1:DICTIONARY_DEPTH/4]),  // Input Vector
+    	    .P(match_position_1),                          // High Priority Index
+    	    .F(match_position_valid_1)                     // This is used when the match is on position 0
+    	);
+
+    priority_enc 
+       #(
+    	    .ENCODER_DEPTH(DICTIONARY_DEPTH/4),
+			.log2N(DICTIONARY_DEPTH_LOG-2)
+    	)
+		PRIO_ENC_i2
+    	(
+		    .rst_n,
+			.clk,
+    	    .A_IN(match_PE[3*DICTIONARY_DEPTH/4-1:2*DICTIONARY_DEPTH/4]),  // Input Vector
+    	    .P(match_position_2),                          // High Priority Index
+    	    .F(match_position_valid_2)                     // This is used when the match is on position 0
+    	);
+
+    priority_enc 
+       #(
+    	    .ENCODER_DEPTH(DICTIONARY_DEPTH/4),
+			.log2N(DICTIONARY_DEPTH_LOG-2)
+    	)
+		PRIO_ENC_i3
+    	(
+		    .rst_n,
+			.clk,
+    	    .A_IN(match_PE[DICTIONARY_DEPTH-1:3*DICTIONARY_DEPTH/4]),  // Input Vector
+    	    .P(match_position_3),                          // High Priority Index
+    	    .F(match_position_valid_3)                     // This is used when the match is on position 0
     	);
 		
+    always @(posedge clk)
+        if(!rst_n) begin
+            match_position_0_reg <= 0;
+            match_position_1_reg <= 0;
+            match_position_2_reg <= 0;
+            match_position_3_reg <= 0;
+            match_position_valid_0_reg <= 0;
+            match_position_valid_1_reg <= 0;
+            match_position_valid_2_reg <= 0;
+            match_position_valid_3_reg <= 0;
+        end else begin
+            match_position_0_reg <= match_position_0;
+            match_position_1_reg <= match_position_1;
+            match_position_2_reg <= match_position_2;
+            match_position_3_reg <= match_position_3;
+            match_position_valid_0_reg <= match_position_valid_0;
+            match_position_valid_1_reg <= match_position_valid_1;
+            match_position_valid_2_reg <= match_position_valid_2;
+            match_position_valid_3_reg <= match_position_valid_3;
+        end
+
+    assign match_position_valid =  match_position_valid_3_reg | match_position_valid_2_reg | match_position_valid_1_reg | match_position_valid_0_reg;
+    
+    reg [DICTIONARY_DEPTH_LOG-3:0] match_position_mux;
+    reg [DICTIONARY_DEPTH_LOG-1:0] match_position_add;
+
+    always @*
+        casex({match_position_valid_3_reg,match_position_valid_2_reg,match_position_valid_1_reg,match_position_valid_0_reg})
+            4'b1xxx: match_position_mux = match_position_3_reg;
+            4'b01xx: match_position_mux = match_position_2_reg;
+            4'b001x: match_position_mux = match_position_1_reg;
+            4'b0001: match_position_mux = match_position_0_reg;
+            default: match_position_mux = 0;//{(DICTIONARY_DEPTH_LOG-2){1'bx}};
+        endcase
+
+    always @*
+        casex({match_position_valid_3_reg,match_position_valid_2_reg,match_position_valid_1_reg,match_position_valid_0_reg})
+            4'b1xxx: match_position_add = 3*DICTIONARY_DEPTH/4;
+            4'b01xx: match_position_add = 2*DICTIONARY_DEPTH/4;
+            4'b001x: match_position_add = 1*DICTIONARY_DEPTH/4;
+            4'b0001: match_position_add = 0;
+            default: match_position_add = 0;//{(DICTIONARY_DEPTH_LOG-2){1'bx}};
+        endcase
+
+    assign match_position = match_position_mux + match_position_add;
 		
 endmodule
 
