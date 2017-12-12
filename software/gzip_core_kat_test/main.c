@@ -50,7 +50,7 @@ char* concat(const char *s1, const char *s2)
 }
 
 
-void write_mem_array_data(uint8_t data, uint8_t address)
+void write_mem_array_data(uint32_t data, uint32_t address)
 {
    int fdw;
 
@@ -70,12 +70,12 @@ void write_mem_array_data(uint8_t data, uint8_t address)
    perror("Failed to seek");
    exit(1);
    }
-   allwrite(fdw,  &data , 1);
+   allwrite(fdw,  &data , 4);
 
    close(fdw);
 }
 
-void check_mem_array_data(uint8_t  expected_val, uint8_t address)
+void check_mem_array_data(uint32_t  expected_val, uint32_t address)
 {
    int fd;
    uint8_t data = 0;
@@ -98,7 +98,7 @@ void check_mem_array_data(uint8_t  expected_val, uint8_t address)
       exit(1);
    }
 
-   allread(fd, &data, 1);
+   allread(fd, &data, 4);
 
    if (data == expected_val)
    {
@@ -278,7 +278,7 @@ int main()
    send_data_to_fpga(fdw, test_in, 65537, BFINAL1, IGNORE_PAYLOAD);
    close(fdw);                                   
  
-   check_mem_array_data(BSIZE_ERR, DEBUG_REG1);
+   check_mem_array_data(BSIZE_ERR, STATUS_REG);
    
 
    printf("\n\n******************** TEST 2 - BSIZE_ERR for FIXED_HUFFMAN  ********************\n");
@@ -307,7 +307,7 @@ int main()
    send_data_to_fpga(fdw, test_in, 3, BFINAL1, IGNORE_PAYLOAD);
    close(fdw);                                   
  
-   check_mem_array_data(BTYPE_ERR, DEBUG_REG1); 
+   check_mem_array_data(BTYPE_ERR, STATUS_REG); 
 
 
    printf("\n\n******************** TEST 5 - CRC Integrity  ********************\n");
@@ -334,23 +334,17 @@ int main()
    
    check_mem_array_data(RESET_DIS, RESET_REG);
 
-   // Check that BLOCK_LEN[24:0] is 4
-   check_mem_array_data(0x0, BLOCK_LEN_23_16);
-   check_mem_array_data(0x0, BLOCK_LEN_15_8);
-   check_mem_array_data(0x4, BLOCK_LEN_7_0);
-
+   // Check that BLOCK_LEN[24:0] is 4;
+   check_mem_array_data(0x4, BLOCK_LEN_REG);
 
    // Check that CRC[31:0] ix 0x7B9CF4E4
-   check_mem_array_data(0x7B, CRC_31_24);
-   check_mem_array_data(0x9C, CRC_23_16);
-   check_mem_array_data(0xF4, CRC_15_8);
-   check_mem_array_data(0xE4, CRC_7_0);
+   check_mem_array_data(0x7B9CF4E4, CRC_REG);
 
    free(data_received); 
 
    close(fdw);                                   
    close(fdr);                                       // close the file descriptors
-   check_mem_array_data(GZIP_DONE, DEBUG_REG1);        // check for the GZIP_DONE bit to be set
+   check_mem_array_data(GZIP_DONE, STATUS_REG);        // check for the GZIP_DONE bit to be set
 
 
 
@@ -380,7 +374,7 @@ int main()
 
    close(fdw);                                   
    close(fdr);                                       // close the file descriptors
-   check_mem_array_data(GZIP_DONE, DEBUG_REG1);        // check for the GZIP_DONE bit to be set
+   check_mem_array_data(GZIP_DONE, STATUS_REG);        // check for the GZIP_DONE bit to be set
     
 
 
