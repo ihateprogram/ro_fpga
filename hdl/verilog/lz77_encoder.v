@@ -48,9 +48,23 @@ module lz77_encoder
 	wire match_position_valid;
 	(* dont_touch = "{true}" *) wire [DATA_WIDTH-1:0] out_reg_PE [0:DICTIONARY_DEPTH-1];  // wires to connect the processing elements
 	(* dont_touch = "{true}" *) wire [DICTIONARY_DEPTH-1:0] match_PE;
+	(* dont_touch = "{true}" *) reg [DICTIONARY_DEPTH-1:0] serial_enable; 
 	wire match_length_max;
 	
 	assign next_symbol = input_data;
+
+	// This is used to disable the PE until the first valid byte reaches that cell (removes 0x00 fake pointers) 
+    always @(posedge clk or negedge rst_n)
+	begin
+	   if(!rst_n) begin
+	      serial_enable[0]                    <= 0;
+		  serial_enable[DICTIONARY_DEPTH-1:1] <= 0;
+	   end
+	   else if (data_valid == 1) begin
+	      serial_enable[DICTIONARY_DEPTH-1:0] <= (serial_enable[DICTIONARY_DEPTH-1:0] << 1) | 1'b1; // enable cells one by one
+	   end 
+	end
+	
 	
 	// The search array is a parameterizable module used to create the sliding dictionary and to return the match positions	
     genvar i;     
@@ -59,30 +73,16 @@ module lz77_encoder
 		    if ( i==0 )			      
                 reg_PE REG_PE_i (.clk, .rst_n,
 	                           .in_reg_PE(input_data[7:0]), .in_cmp_data(input_data[7:0]),
-                               .shift_en(data_valid), .set_match,
+                               .shift_en(data_valid), .set_match(set_match & serial_enable[i]),
                                .out_reg_PE(out_reg_PE[i]),  .match(match_PE[i]));					
 			else 			
 				reg_PE REG_PE_i (.clk, .rst_n,
 	                           .in_reg_PE(out_reg_PE[i-1]), .in_cmp_data(input_data[7:0]),
-                               .shift_en(data_valid), .set_match,
+                               .shift_en(data_valid), .set_match(set_match & serial_enable[i]),
                                .out_reg_PE(out_reg_PE[i]), .match(match_PE[i]));
         end
     endgenerate
 
-    /*generate
-        for (i=0; i < DICTIONARY_DEPTH; i=i+1) begin : SLD_WIN
-		    if ( i==0 )
-                reg_PE REG_PE_i (.clk, .rst_n,
-	                           .in_reg_PE(next_symbol[7:0]), .in_cmp_data(input_data[7:0]),
-                               .shift_en(data_valid), .set_match,
-                               .out_reg_PE(out_reg_PE[7:0]),  .match(match_PE[i]));					
-			else 			
-				reg_PE REG_PE_i (.clk, .rst_n,
-	                           .in_reg_PE(out_reg_PE[i*8-1:(i-1)*8]), .in_cmp_data(input_data[7:0]),
-                               .shift_en(data_valid), .set_match,
-                               .out_reg_PE(out_reg_PE[(i+1)*8-1:i*8]), .match(match_PE[i]));
-        end
-    endgenerate */
 	
 	assign match_global = |match_PE[DICTIONARY_DEPTH-1:0];    // big OR gate used for match detection
 	
@@ -229,7 +229,3 @@ module lz77_encoder
     assign match_position = match_position_mux + match_position_add;
 		
 endmodule
-
-
-
-
