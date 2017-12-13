@@ -6,6 +6,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <sys/mman.h>
 
 //#include "xilly_debug.h"
 
@@ -52,53 +53,52 @@ char* concat(const char *s1, const char *s2)
 
 void write_mem_array_data(uint32_t data, uint32_t address)
 {
-   int fdw;
+    int fd;
+    void * map_addr;
+    int size = 256;
+    fd = open("/dev/uio0", O_RDWR);
+    if(fd < 0) {
+        perror("Failed to open devfile");
+        exit(1);
+    }
 
-   printf("\nWrite data = %ld at address = %d", decimalToBinary(data), address);
+    map_addr = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    if(map_addr == MAP_FAILED) {
+        perror("Failed to mmap");
+        exit(1);
+    }
 
-   fdw = open("/dev/xillybus_mem_8", O_WRONLY);
+    printf("\nRegister Write data = %ld at address = %d", decimalToBinary(data), address);
 
-   if (fdw < 0) {
-   if (errno == ENODEV)
-   fprintf(stderr, "(Maybe %c a read-only file?)\n", fdw);
+    int offset = address/4;
+    volatile unsigned int * pointer = map_addr;
+    pointer[offset] = data;
 
-   perror("Failed to open devfile");
-   exit(1);
-   }
-
-   if (lseek(fdw, address, SEEK_SET) < 0) {
-   perror("Failed to seek");
-   exit(1);
-   }
-   allwrite(fdw,  &data , 4);
-
-   close(fdw);
+    close(fd);
 }
 
 void check_mem_array_data(uint32_t  expected_val, uint32_t address)
 {
-   int fd;
-   uint8_t data = 0;
-   
-   test_count = test_count + 1;  
+    int fd;
+    void * map_addr;
+    int size = 256;
+    fd = open("/dev/uio0", O_RDWR);
+    if(fd < 0) {
+        perror("Failed to open devfile");
+        exit(1);
+    }
 
-   fd = open("/dev/xillybus_mem_8", O_RDONLY);
+    map_addr = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    if(map_addr == MAP_FAILED) {
+        perror("Failed to mmap");
+        exit(1);
+    }
 
-   if (fd < 0) 
-   {
-      if (errno == ENODEV)
-         fprintf(stderr, "(Maybe %d a write-only file?)\n", fd);
-         perror("Failed to open devfile");
-         exit(1);
-   }
+    printf("\nRegister Read from address = %d", address);
 
-   if (lseek(fd, address, SEEK_SET) < 0) 
-   {
-      perror("Failed to seek");
-      exit(1);
-   }
-
-   allread(fd, &data, 4);
+    int offset = address/4;
+    volatile unsigned int * pointer = map_addr;
+    uint32_t data = pointer[offset];
 
    if (data == expected_val)
    {
@@ -292,6 +292,7 @@ int main()
    send_data_to_fpga(fdw, test_in, 32769, BFINAL1, IGNORE_PAYLOAD);
    close(fdw);                                   
  
+   check_mem_array_data(BSIZE_ERR, STATUS_REG);
 
    printf("\n\n******************** TEST 3 - BTYPE_ERR  ********************\n");
    printf("\tBTYPE = DYNAMIC_HUFFMAN\n");
