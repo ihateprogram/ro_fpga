@@ -6,7 +6,7 @@
 typedef unsigned char uint8_t;
 typedef long int      uint32_t;
 
-#define DEV_ID              0xBA
+#define DEV_ID              0xBC
 
 // Register addresses
 #define RESET_REG           0
