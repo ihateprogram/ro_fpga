@@ -16,7 +16,6 @@ module priority_enc
     
 	// Register the input that goes in the priority encoder
 	reg [ENCODER_DEPTH-1:0] A;
-	//wire [ENCODER_DEPTH-1:0] A;
 
 	always @(posedge clk or negedge rst_n)
 	begin
@@ -24,7 +23,6 @@ module priority_enc
 		else        A <= A_IN;
 	end 
 	
-	//assign A = A_IN;
 	
     function [log2N:0] priority_enc;
     input [ENCODER_DEPTH-1:0] A;
