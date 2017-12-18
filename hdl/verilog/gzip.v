@@ -94,6 +94,9 @@ module gzip
     reg             reg_rd_ack;
     reg             reg_wr_ack;
 
+    reg  irq_enable;
+    wire irq_int;
+
     //AXI4-Lite Slave Attachment
     axi4lite_slave #(
         .ADDR_WIDTH(8),
@@ -141,7 +144,7 @@ module gzip
         .ip_error(1'b0)//TODO: implment error checking
     );
 
-    assign irq = 0;
+    assign irq = irq_int & irq_enable;
 
    //=============================================================================================================
    //======================================== Configuration Registers ============================================
@@ -151,7 +154,7 @@ module gzip
 	    if(reg_wren)
             case(reg_addr[7:2])
                 0:  gzip_rst_n  <= reg_wr_data[0];
-                1:  {rev_endianness,btype} <= reg_wr_data[2:0];
+                1:  {irq_enable,rev_endianness,btype} <= reg_wr_data[2:0];
             endcase
     end
 
@@ -160,7 +163,7 @@ module gzip
 	    if(reg_rden)
             case(reg_addr[7:2])
                 0:  reg_rd_data <= {31'd0,gzip_rst_n};
-                1:  reg_rd_data <= {29'd0,rev_endianness,btype};
+                1:  reg_rd_data <= {28'd0,irq_enable,rev_endianness,btype};
                 2:  reg_rd_data <= {29'd0,debug_reg[2:0]};  // gzip_done, btype_error, block_size_error
                 3:  reg_rd_data <= debug_reg[39:8];         // ISIZE
                 4:  reg_rd_data <= debug_reg[71:40];        // CRC32
@@ -195,7 +198,8 @@ module gzip
        .debug_reg       (debug_reg),
        .full_in_fifo    (in_fifo_full), // shows that we cannot write data in the input FIFO
        .dout_out_fifo_32(out_fifo_data),// 32 bit data output
-       .empty_out_fifo  (out_fifo_empty)// shows that we CAN read from the output FIFO
+       .empty_out_fifo  (out_fifo_empty),// shows that we CAN read from the output FIFO
+       .irq             (irq_int)
        ); 
 
     //input AXIS adapter

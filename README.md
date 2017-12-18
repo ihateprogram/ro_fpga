@@ -27,7 +27,7 @@ If our code is useful to your research, please cite our work. To cite this paper
 | Address | Name    | Default Value | Notes                                                                 |
 |:--------|:--------|:--------------|:----------------------------------------------------------------------|
 | 0x00       | RST_REG | 0             | Active-low core reset tied to RST_REG[0]                           |
-| 0x04       | CONFIG  | 0             | CONFIG[1:0] corresponds to BTYPE, CONFIG[2] to REND                |
+| 0x04       | CONFIG  | 0             | CONFIG[1:0] maps to BTYPE, CONFIG[2] to REND, CONFIG[3] to IRQEN   |
 | 0x08       | STATUS  | 0             | 29 zeros at MSB, then GZIP_DONE, BTYPE_ERROR, and BLOCK_SIZE_ERROR |
 | 0x0C       | ISIZE   | 0             | Input (uncompressed) data size, modulo 2^32                        |
 | 0x10       | CRC32   | 0             | Computed CRC (ISO 3309 and ITU-T V.42 compliant)                   |
@@ -39,8 +39,9 @@ If our code is useful to your research, please cite our work. To cite this paper
 To operate the module, the software must do the following:
 1. Reset the core by writing the LSB of RST_REG with 0 then with 1.
 2. Set BTYPE either 00 or 01 modes (uncompressed or fixed Huffman respectively).
-3. Set REND the desired endianness, 0 for LittleEndian or 1 for BigEndian
-4. Write the command word before a data block on the 32 bit interface.
-5. Write BLOCK_LEN data bytes in the 32 bit interface.
-6. Repeat steps 3 and 4 until all data is compressed.
+3. Set REND the desired endianness, 0 for LittleEndian or 1 for BigEndian.
+4. Set IRQEN to 1 to enable interrupts or 0 to disable them.
+5. Write the command word before a data block on the 32 bit interface.
+6. Write BLOCK_LEN data bytes in the 32 bit interface.
+7. Repeat steps 3 and 4 until all data is compressed.
 

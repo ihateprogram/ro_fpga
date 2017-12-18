@@ -87,7 +87,8 @@ module gzip_top
     output [95:0] debug_reg,	                  // CRC, ISIZE, other signals
     output full_in_fifo,
 	output [31:0] dout_out_fifo_32,  
-	output empty_out_fifo
+	output empty_out_fifo,
+	output irq
     );
 
     `ifdef REMOVE_ME
@@ -845,5 +846,7 @@ module gzip_top
     assign empty_out_fifo = empty_out_fifo_64;
     assign rd_en_fifo_out_64 = dout_out_fifo_64_toggle & rd_en_fifo_out;
 	assign dout_out_fifo_32 = rev_endianess_in ? {dout_fifo_out_mux[7:0], dout_fifo_out_mux[15:8], dout_fifo_out_mux[23:16], dout_fifo_out_mux[31:24]} : dout_fifo_out_mux;
+
+	assign irq = gzip_done;
 
 endmodule
