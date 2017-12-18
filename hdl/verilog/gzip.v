@@ -154,7 +154,7 @@ module gzip
 	    if(reg_wren)
             case(reg_addr[7:2])
                 0:  gzip_rst_n  <= reg_wr_data[0];
-                1:  {irq_enable,rev_endianness,btype} <= reg_wr_data[2:0];
+                1:  {irq_enable,rev_endianness,btype} <= reg_wr_data[3:0];
             endcase
     end
 
