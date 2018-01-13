@@ -72,8 +72,10 @@ module gzip
     reg out_tvalid;
     wire [31:0] out_tdata;
     wire out_tready;
+    wire out_tlast;
 
     reg [31:0] out_fifo_data_r;
+    reg out_fifo_last_r;
     reg out_fifo_rden_r;
 
     wire        in_fifo_full;
@@ -198,6 +200,7 @@ module gzip
        .debug_reg       (debug_reg),
        .full_in_fifo    (in_fifo_full), // shows that we cannot write data in the input FIFO
        .dout_out_fifo_32(out_fifo_data),// 32 bit data output
+       .last_out_fifo_32(out_fifo_last),// signals last word in output
        .empty_out_fifo  (out_fifo_empty),// shows that we CAN read from the output FIFO
        .irq             (irq_int)
        ); 
@@ -243,7 +246,7 @@ module gzip
         .s_axis_tdata(out_tdata),
         .s_axis_tvalid(out_tvalid),
         .s_axis_tready(out_tready),
-        .s_axis_tlast(1'b0),
+        .s_axis_tlast(out_tlast),
         .s_axis_tuser(1'b0),
         
         .m_axis_aclk(m_axis_aclk),
@@ -257,11 +260,13 @@ module gzip
     //adaptor logic to transfer from gzip to output AXIS FIFO
     assign out_fifo_rden = out_tready & ~out_fifo_empty;
     assign out_tdata = out_fifo_rden_r ? out_fifo_data : out_fifo_data_r;
+    assign out_tlast = out_fifo_rden_r ? out_fifo_last : out_fifo_last_r;
 
     always @(posedge core_clock) begin
         out_fifo_rden_r <= out_fifo_rden;
         if(out_fifo_rden) begin
             out_fifo_data_r <= out_fifo_data;
+            out_fifo_last_r <= out_fifo_last;
             out_tvalid <= 1;
         end else if(out_tready) begin
             out_tvalid <= 0;
