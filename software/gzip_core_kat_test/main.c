@@ -6,6 +6,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <sys/mman.h>
 
 //#include "xilly_debug.h"
 
@@ -48,55 +49,54 @@ char* concat(const char *s1, const char *s2)
 }
 
 
-void write_mem_array_data(uint8_t data, uint8_t address)
+void write_mem_array_data(uint32_t data, uint32_t address)
 {
-   int fdw;
+    int fd;
+    void * map_addr;
+    int size = 256;
+    fd = open("/dev/uio0", O_RDWR);
+    if(fd < 0) {
+        perror("Failed to open devfile");
+        exit(1);
+    }
 
-   printf("\nWrite data = %ld at address = %d", decimalToBinary(data), address);
+    map_addr = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    if(map_addr == MAP_FAILED) {
+        perror("Failed to mmap");
+        exit(1);
+    }
 
-   fdw = open("/dev/xillybus_mem_8", O_WRONLY);
+    printf("\nRegister Write data = %ld at address = %d", decimalToBinary(data), address);
 
-   if (fdw < 0) {
-   if (errno == ENODEV)
-   fprintf(stderr, "(Maybe %c a read-only file?)\n", fdw);
+    int offset = address/4;
+    volatile unsigned int * pointer = map_addr;
+    pointer[offset] = data;
 
-   perror("Failed to open devfile");
-   exit(1);
-   }
-
-   if (lseek(fdw, address, SEEK_SET) < 0) {
-   perror("Failed to seek");
-   exit(1);
-   }
-   allwrite(fdw,  &data , 1);
-
-   close(fdw);
+    close(fd);
 }
 
-void check_mem_array_data(uint8_t  expected_val, uint8_t address)
+void check_mem_array_data(uint32_t  expected_val, uint32_t address)
 {
-   int fd;
-   uint8_t data = 0;
-   
-   test_count = test_count + 1;  
+    int fd;
+    void * map_addr;
+    int size = 256;
+    fd = open("/dev/uio0", O_RDWR);
+    if(fd < 0) {
+        perror("Failed to open devfile");
+        exit(1);
+    }
 
-   fd = open("/dev/xillybus_mem_8", O_RDONLY);
+    map_addr = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    if(map_addr == MAP_FAILED) {
+        perror("Failed to mmap");
+        exit(1);
+    }
 
-   if (fd < 0) 
-   {
-      if (errno == ENODEV)
-         fprintf(stderr, "(Maybe %d a write-only file?)\n", fd);
-         perror("Failed to open devfile");
-         exit(1);
-   }
+    printf("\nRegister Read from address = %d", address);
 
-   if (lseek(fd, address, SEEK_SET) < 0) 
-   {
-      perror("Failed to seek");
-      exit(1);
-   }
-
-   allread(fd, &data, 1);
+    int offset = address/4;
+    volatile unsigned int * pointer = map_addr;
+    uint32_t data = pointer[offset];
 
    if (data == expected_val)
    {
@@ -134,7 +134,6 @@ void send_data_to_fpga(int fd, char* data_buff, uint32_t len_override, uint8_t b
 {
    uint8_t command_word[4];
    //uint8_t data_remainder[] = "0000";
-   uint32_t i;
    uint8_t* concatenate;
    uint8_t remainder;
    uint32_t len;
@@ -213,8 +212,8 @@ uint8_t* read_data_from_fpga(int fd, uint32_t rd_len)
    {
       if (errno == ENODEV)
          fprintf(stderr, "(Maybe %d a write-only file?)\n", fd);
-         perror("Failed to open devfile");
-         exit(1);
+      perror("Failed to open devfile");
+      exit(1);
    }
   
    //printf("\n******** lung_read_data = %d ", strlen(read_data));
@@ -252,7 +251,6 @@ int main()
 {
    uint8_t test_in[] = "1234";  // 128 bit of data which will be sent to the FPGA
    uint8_t *data_received;
-   int i;
    int fdr, fdw;
 
    printf("\n**************************************************************************\n");
@@ -267,16 +265,16 @@ int main()
 
    printf("\n\n******************** TEST 1 - BSIZE_ERR for NO_COMPRESSION  ********************\n");
    printf("\tBLOCK_SIZE = 65537\n");
-   write_mem_array_data(BTYPE_NO_COMPRESSION, BTYPE_REG);
+   write_mem_array_data(IRQ_ENABLE | BTYPE_NO_COMPRESSION, BTYPE_REG);
    write_mem_array_data(RESET_EN, RESET_REG);
    write_mem_array_data(RESET_DIS, RESET_REG);
    check_mem_array_data(RESET_DIS, RESET_REG);
        
-   fdw = open("/dev/xillybus_write_32",O_WRONLY);
+   fdw = open("/dev/xillybus_connex_instruction_32",O_WRONLY);
    send_data_to_fpga(fdw, test_in, 65537, BFINAL1, IGNORE_PAYLOAD);
    close(fdw);                                   
  
-   check_mem_array_data(BSIZE_ERR, DEBUG_REG1);
+   check_mem_array_data(BSIZE_ERR, STATUS_REG);
    
 
    printf("\n\n******************** TEST 2 - BSIZE_ERR for FIXED_HUFFMAN  ********************\n");
@@ -286,12 +284,11 @@ int main()
    write_mem_array_data(RESET_DIS, RESET_REG);
    check_mem_array_data(RESET_DIS, RESET_REG);   // check if the RESET bit is SET
        
-   fdw = open("/dev/xillybus_write_32",O_WRONLY);
+   fdw = open("/dev/xillybus_connex_instruction_32",O_WRONLY);
    send_data_to_fpga(fdw, test_in, 32769, BFINAL1, IGNORE_PAYLOAD);
    close(fdw);                                   
- 
-   check_mem_array_data(BSIZE_ERR, DEBUG_REG1);
 
+   check_mem_array_data(BSIZE_ERR, STATUS_REG); 
    
    printf("\n\n******************** TEST 3 - BTYPE_ERR  ********************\n");
    printf("\tBTYPE = DYNAMIC_HUFFMAN\n");
@@ -303,11 +300,11 @@ int main()
    write_mem_array_data(BTYPE_UNDEFINED, BTYPE_REG);
    check_mem_array_data(BTYPE_UNDEFINED, BTYPE_REG);
        
-   fdw = open("/dev/xillybus_write_32",O_WRONLY);
+   fdw = open("/dev/xillybus_connex_instruction_32",O_WRONLY);
    send_data_to_fpga(fdw, test_in, 3, BFINAL1, IGNORE_PAYLOAD);
    close(fdw);                                   
- 
-   check_mem_array_data(BTYPE_ERR, DEBUG_REG1); 
+   usleep(100);
+   check_mem_array_data(BTYPE_ERR, STATUS_REG); 
 
 
    printf("\n\n******************** TEST 4 - CRC Integrity  ********************\n");
@@ -323,8 +320,8 @@ int main()
    write_mem_array_data(RESET_DIS, RESET_REG);
    check_mem_array_data(RESET_DIS, RESET_REG);
        
-   fdw = open("/dev/xillybus_write_32",O_WRONLY);
-   fdr = open("/dev/xillybus_read_32", O_RDONLY);    // open the file descriptors
+   fdw = open("/dev/xillybus_connex_instruction_32",O_WRONLY);
+   fdr = open("/dev/xillybus_connex_reduction_32", O_RDONLY);    // open the file descriptors
    send_data_to_fpga(fdw, "0001", 0, BFINAL1, PROCESS_PAYLOAD);
    //printf("\n******** lungimea %d\n", strlen((char *)data_received));
   // printf("\n Concatenate = %s", data_received);
@@ -334,23 +331,17 @@ int main()
    
    check_mem_array_data(RESET_DIS, RESET_REG);
 
-   // Check that BLOCK_LEN[24:0] is 4
-   check_mem_array_data(0x0, BLOCK_LEN_23_16);
-   check_mem_array_data(0x0, BLOCK_LEN_15_8);
-   check_mem_array_data(0x4, BLOCK_LEN_7_0);
-
+   // Check that BLOCK_LEN[24:0] is 4;
+   check_mem_array_data(0x4, BLOCK_LEN_REG);
 
    // Check that CRC[31:0] ix 0x7B9CF4E4
-   check_mem_array_data(0x7B, CRC_31_24);
-   check_mem_array_data(0x9C, CRC_23_16);
-   check_mem_array_data(0xF4, CRC_15_8);
-   check_mem_array_data(0xE4, CRC_7_0);
+   check_mem_array_data(0x7B9CF4E4, CRC_REG);
 
    free(data_received); 
 
    close(fdw);                                   
    close(fdr);                                       // close the file descriptors
-   check_mem_array_data(GZIP_DONE, DEBUG_REG1);        // check for the GZIP_DONE bit to be set
+   check_mem_array_data(GZIP_DONE, STATUS_REG);        // check for the GZIP_DONE bit to be set
 
 
    printf("\n\n******************** TEST 5 - NO COMPRESSION  ********************\n");
@@ -365,8 +356,8 @@ int main()
    write_mem_array_data(RESET_DIS, RESET_REG);
    check_mem_array_data(RESET_DIS, RESET_REG);
        
-   fdw = open("/dev/xillybus_write_32",O_WRONLY);
-   fdr = open("/dev/xillybus_read_32", O_RDONLY);    // open the file descriptors
+   fdw = open("/dev/xillybus_connex_instruction_32",O_WRONLY);
+   fdr = open("/dev/xillybus_connex_reduction_32", O_RDONLY);    // open the file descriptors
    send_data_to_fpga(fdw, "Test GZIP compression core Test.", 0, BFINAL1, PROCESS_PAYLOAD);
    //printf("\n******** lungimea %d\n", strlen((char *)data_received));
   // printf("\n Concatenate = %s", data_received);
@@ -378,7 +369,7 @@ int main()
 
    close(fdw);                                   
    close(fdr);                                       // close the file descriptors
-   check_mem_array_data(GZIP_DONE, DEBUG_REG1);        // check for the GZIP_DONE bit to be set
+   check_mem_array_data(GZIP_DONE, STATUS_REG);        // check for the GZIP_DONE bit to be set
     
 
    printf("\n\n******************** TEST 6 - STATIC HUFFMAN COMPRESSION  ********************\n");
@@ -392,8 +383,8 @@ int main()
    write_mem_array_data(RESET_DIS, RESET_REG);
    check_mem_array_data(RESET_DIS, RESET_REG);
 
-   fdw = open("/dev/xillybus_write_32",O_WRONLY);
-   fdr = open("/dev/xillybus_read_32", O_RDONLY);    // open the file descriptors
+   fdw = open("/dev/xillybus_connex_instruction_32",O_WRONLY);
+   fdr = open("/dev/xillybus_connex_reduction_32", O_RDONLY);    // open the file descriptors
    send_data_to_fpga(fdw, "Test GZIP compression core Test GZIP", 0, BFINAL1, PROCESS_PAYLOAD);
    //printf("\n******** lungimea %d\n", strlen((char *)data_received));
   // printf("\n Concatenate = %s", data_received);

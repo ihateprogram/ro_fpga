@@ -1,4 +1,4 @@
-CC=gcc-6
+CC=gcc
 CFLAGS=-Wall
 main: main.o  fpga_functions.o
 
