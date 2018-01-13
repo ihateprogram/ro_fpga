@@ -87,6 +87,7 @@ module gzip_top
     output [95:0] debug_reg,	                  // CRC, ISIZE, other signals
     output full_in_fifo,
 	output [31:0] dout_out_fifo_32,  
+    output reg last_out_fifo_32,
 	output empty_out_fifo,
 	output irq
     );
@@ -807,10 +808,11 @@ module gzip_top
     wire rd_en_fifo_out_64;
     wire empty_out_fifo_64;
     wire [63:0] dout_out_fifo_64;
+    wire out_last_fifo_64;
 
 	srl_fifo
     #(
-        .WIDTH(64),
+        .WIDTH(64+1),
         .DEPTH_LOG(4),
         .FALLTHROUGH("true")
     )
@@ -820,11 +822,11 @@ module gzip_top
         .reset  (reset_fifo),
 
         .push   (wr_en_fifo_out),
-        .din    (gzip_data_out),
+        .din    ({out_last,gzip_data_out}),
         .full   (full_out_fifo),
 
         .pop    (rd_en_fifo_out_64),
-        .dout   (dout_out_fifo_64),
+        .dout   ({out_last_fifo_64,dout_out_fifo_64}),
         .empty  (empty_out_fifo_64)
     );
 
@@ -842,6 +844,9 @@ module gzip_top
                 dout_fifo_out_mux <= dout_out_fifo_64[31:0];
             else
                 dout_fifo_out_mux <= dout_out_fifo_64[63:32];
+
+    always @(posedge clk)
+        last_out_fifo_32 <= rd_en_fifo_out & dout_out_fifo_64_toggle & out_last_fifo_64;
 
     assign empty_out_fifo = empty_out_fifo_64;
     assign rd_en_fifo_out_64 = dout_out_fifo_64_toggle & rd_en_fifo_out;
