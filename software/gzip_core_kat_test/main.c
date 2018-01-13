@@ -309,7 +309,8 @@ int main()
 
    printf("\n\n******************** TEST 4 - CRC Integrity  ********************\n");
    printf("Check CRC integrity \n");
-   uint8_t expected_data0[] = {0x1 , 0x4, 0x0, 0xfb, 0xff, 0x30, 0x30, 0x30, 0x31, 0xe4, 0xf4, 0x9c, 0x7b, 0x4 , 0x0 , 0x0};
+   uint8_t expected_data0[] = {0x1 , 0x4, 0x0, 0xfb, 0xff, 0x30, 0x30, 0x30, 0x31, 0xe4, 0xf4, 0x9c, 0x7b, 0x4 , 0x0 , 0x0, 0x0, 0x0, 0x0, 
+0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
 
  
    //uint8_t expected_data1[] = {0x1, 0x0};    
@@ -325,9 +326,9 @@ int main()
    send_data_to_fpga(fdw, "0001", 0, BFINAL1, PROCESS_PAYLOAD);
    //printf("\n******** lungimea %d\n", strlen((char *)data_received));
   // printf("\n Concatenate = %s", data_received);
-   data_received = read_data_from_fpga(fdr, 16);
+   data_received = read_data_from_fpga(fdr, 24);
      
-   check_compressed_data(data_received, expected_data0, 16);
+   check_compressed_data(data_received, expected_data0, 24);
    
    check_mem_array_data(RESET_DIS, RESET_REG);
 
