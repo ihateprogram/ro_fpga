@@ -225,7 +225,7 @@ module gzip_top
         .reset  (reset_fifo),
 
         .push   (wr_en_fifo_in),
-        .din    (din_fifo_in),
+        .din    (din_fifo_in_mux),
         .full   (full_in_fifo),
 
         .pop    (rd_en_fifo_in),
@@ -282,11 +282,10 @@ module gzip_top
             `START_OF_BLOCK : begin
                             `ifdef REMOVE_ME text_gzip_top ="START_OF_BLOCK"; `endif 
 							    // bytes must be swapped because they are stored in reversed order in the computer memory
-								block_header_data = {dout_in_fifo_32[7:0], dout_in_fifo_32[15:8], dout_in_fifo_32[23:16], dout_in_fifo_32[31:24]};								
-								
+								block_header_data = dout_in_fifo_32;
 							    word_merge_in_valid   = 1;
 								word_merge_in_size    = btype_no_compression ? 6'd8 : 6'd3; // For blocks in STORED mode (BTYPE==00) you have to go to a byte boundary
-								word_merge_in_data    = {29'b0, btype[1:0], dout_in_fifo_32[0]}; // BTYPE, BFINAL - are the first 3 bits in a block						
+								word_merge_in_data    = {29'b0, btype[1:0], dout_in_fifo_32[24]}; // BTYPE, BFINAL - are the first 3 bits in a block
 								
 								if (btype_no_compression == 1)
 								   next_state = `BLOCK_LEN;    //BLOCK_LEN is reached only from STORED mode
