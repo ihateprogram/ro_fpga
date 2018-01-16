@@ -84,7 +84,7 @@ module gzip_top
                                                   //     01 - compressed with fixed Huffman codes
 	
     // Module outputs 
-    output [95:0] debug_reg,	                  // CRC, ISIZE, other signals
+    output [119:0] debug_reg,	                  // CRC, ISIZE, other signals
     output full_in_fifo,
 	output [31:0] dout_out_fifo_32,  
     output reg last_out_fifo_32,
@@ -121,7 +121,8 @@ module gzip_top
                                         //     01 - compressed with fixed Huffman codes										
 	reg [23:0] block_size;              // 65k for uncompressed blocks and 32k for compressed blocks
 	reg [31:0] isize;                   // ISIZE = This contains the size of the original (uncompressed) input data modulo 2^32.
-	
+    reg [24:0] output_size;             // size of output stream, in bits; NOTE: core pads with zeros up to an integer multiple of 64 bits on AXI output
+
 	reg word_merge_in_valid;
 	reg word_merge_in_last;
 	reg [5:0]  word_merge_in_size;
@@ -591,7 +592,7 @@ module gzip_top
 		else if (word_merge_in_last) gzip_done <= 1'b1;
     end	
 	
-	assign debug_reg = {block_size, crc32_out, isize, {5'b0, gzip_done, btype_error, block_size_error}};
+	assign debug_reg = {output_size, block_size, crc32_out, isize, {5'b0, gzip_done, btype_error, block_size_error}};
 	
 	
 	//====================================================================================================================
@@ -800,6 +801,12 @@ module gzip_top
         .out_data  (gzip_data_out)
         );
 		
+    always @(posedge clk)
+        if(!rst_n)
+            output_size <= 0;
+        else if(in_valid)
+            output_size <= output_size + in_size;
+
 
     //====================================================================================================================	
 	//========================================== Instantiate the Output FIFO =============================================

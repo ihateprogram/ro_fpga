@@ -32,7 +32,8 @@ If our code is useful to your research, please cite our work. To cite this paper
 | 0x0C       | ISIZE   | 0             | Input (uncompressed) data size, modulo 2^32                        |
 | 0x10       | CRC32   | 0             | Computed CRC (ISO 3309 and ITU-T V.42 compliant)                   |
 | 0x14       | BSIZE   | 0             | Size of the current input data block                               |
-| 0x18       | ID      | B9            | Version ID of the current GZIP build                               |
+| 0x18       | OSIZE   | 0             | Size of the generated DEFLATE stream, in bits; NOTE: core pads with zeros up to an integer multiple of 64 bits on AXI output |
+| 0x1C       | ID      | B9            | Version ID of the current GZIP build                               |
 
 ## Software Operation
 
