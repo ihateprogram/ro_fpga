@@ -13,7 +13,7 @@ module gzip
 		parameter DICTIONARY_DEPTH_LOG = 10,
 	    parameter LOOK_AHEAD_BUFF_DEPTH = 66,     // the max length of the GZIP match
 		parameter CNT_WIDTH = 7,                  // The counter size must be changed according to the maximum match length	
-        parameter DEVICE_ID = 8'hB9
+        parameter DEVICE_ID = 8'hBD
 	)
     (
     // Module inputs
@@ -67,7 +67,7 @@ module gzip
 	reg gzip_rst_n;
     reg rev_endianness;
 	reg [1:0] btype;
-    wire [95:0] debug_reg;
+    wire [119:0] debug_reg;
 	
     reg out_tvalid;
     wire [31:0] out_tdata;
@@ -170,6 +170,7 @@ module gzip
                 3:  reg_rd_data <= debug_reg[39:8];         // ISIZE
                 4:  reg_rd_data <= debug_reg[71:40];        // CRC32
                 5:  reg_rd_data <= debug_reg[95:72];        // block_size (24 bits)
+                6:  reg_rd_data <= debug_reg[119:96];       // size of output stream in bits; NOTE: core pads with zeros up to a multiple of 64 bits on AXI interface
                 default: reg_rd_data <= DEVICE_ID;
             endcase
     end
