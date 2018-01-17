@@ -92,8 +92,8 @@ always @(posedge clock) begin
 	end
 	else begin
         out_data  <= merged_word;
-        out_valid <= merged_valid | flush;
-        out_last  <= flush;
+        out_valid <= merged_valid | (flush & (size_remainder != 0));
+        out_last  <= (merged_valid & in_last_r & (size_remainder == 0)) | (flush & (size_remainder != 0));
 	end
 end
 
