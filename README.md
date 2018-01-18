@@ -35,6 +35,19 @@ If our code is useful to your research, please cite our work. To cite this paper
 | 0x18       | OSIZE   | 0             | Size of the generated DEFLATE stream, in bits; NOTE: core pads with zeros up to an integer multiple of 64 bits on AXI output |
 | 0x1C       | ID      | B9            | Version ID of the current GZIP build                               |
 
+## Command Word Description
+
+Input to the GZIP core consists of data blocks 
+A 32-bit command word must precede each data block on the input AXI Stream interface. 
+The command word indicates the length of the data block following it and indicates if it is the last block.
+The fields of the command word are as follows:
+
+| Bit Range | Name     | Notes                                        |
+|:----------|:-------- |:---------------------------------------------|
+| [31:25]   | RESERVED | Reserved bits, set to 0                      |
+| [24]      | BFINAL   | Set to 1 if last block of input, otherwise 0 |
+| [23:0]    | BSIZE    | Number of data bytes in the block            |
+
 ## Software Operation
 
 To operate the module, the software must do the following:
@@ -45,4 +58,11 @@ To operate the module, the software must do the following:
 5. Write the command word before a data block on the 32 bit interface.
 6. Write BLOCK_LEN data bytes in the 32 bit interface.
 7. Repeat steps 3 and 4 until all data is compressed.
+
+## Core Output
+
+The GZIP IP produces RFC1951-compliant DEFLATE streams in noncompressed or fixed Huffman modes (depending on the setting of BTYPE). 
+The DEFLATE streams are appended with the CRC32 and ISIZE fields of the GZIP file format, described in RFC1952.
+To obtain a valid GZIP file, software must write the GZIP header and append the core output.
+
 
