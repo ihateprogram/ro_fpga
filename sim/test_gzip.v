@@ -18,6 +18,10 @@ parameter DEVICE_ID = 8'hB9;
 parameter INPUT_FILE = "input.bin";//compress this file
 parameter OUTPUT_FILE = "output.bin";
 
+parameter T_REG_CLK = 10;
+parameter T_CORE_CLK = 10;
+parameter T_BUS_CLK = 10;
+
 //signals
 reg bus_clock;         // the 2 clock signals
 reg core_clock;
@@ -62,15 +66,15 @@ wire config_done, source_done, sink_done;
 //generate clocks
 initial begin
     reg_clk = 0;
-    forever #10 reg_clk = ~reg_clk; //50MHz register interface clock
+    forever #(T_REG_CLK/2) reg_clk = ~reg_clk; //50MHz register interface clock
 end
 initial begin
     bus_clock = 0;
-    forever #5 bus_clock = ~bus_clock; //100MHz FIFO interface clock
+    forever #(T_BUS_CLK/2) bus_clock = ~bus_clock; //100MHz FIFO interface clock
 end
 initial begin
     core_clock = 0;
-    forever #4 core_clock = ~core_clock; //125MHz compressor clock
+    forever #(T_CORE_CLK/2) core_clock = ~core_clock; //125MHz compressor clock
 end
 
 initial begin

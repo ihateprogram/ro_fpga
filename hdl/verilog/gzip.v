@@ -191,7 +191,7 @@ module gzip
        .rst_n           (gzip_rst_n),   // reset for the GZIP core
     
        .reset_fifo      (bus_reset),   // reset for the FIFOs	
-       .wr_en_fifo_in   (in_fifo_wren), // write_enable for the input FIFO
+       .wr_en_fifo_in   (in_fifo_wren & ~in_fifo_full), // write_enable for the input FIFO
        .din_fifo_in     (in_fifo_data), // 32 bit data input
        .rd_en_fifo_out  (out_fifo_rden),// read_enable for the output FIFO
 	   .rev_endianess_in(rev_endianness),// Changes the endianess on I/O FIFOs
