@@ -270,11 +270,11 @@ module gzip_top
         case ( state )
             `IDLE       : begin 
     		                `ifdef REMOVE_ME text_gzip_top ="IDLE"; `endif 
-    		                if (!empty_in_fifo && !block_header_received) begin      // process the frame block header 
+    		                if (!empty_in_fifo && !out_fifo_almost_full && !block_header_received) begin      // process the frame block header 
     						    next_state    = `START_OF_BLOCK;
     							rd_en_fifo_in = 1;
     						end	
-                            else if (!empty_in_fifo && block_header_received) begin  // we can proceed if we have at least one byte to transmit
+                            else if (!empty_in_fifo && !out_fifo_almost_full && block_header_received) begin  // we can proceed if we have at least one byte to transmit
     						    next_state    = `LOAD_BYTE0;
     							rd_en_fifo_in = 1; 
                             end
@@ -384,7 +384,7 @@ module gzip_top
 							end
 							
                             if (!byte_counter_max) begin                 // We send data to the LZ77 encoder until EOF is detected
-								if (!empty_in_fifo) begin                // if we got more data in the FIFO we can go and transmit another 32 bytes
+								if (!empty_in_fifo & !out_fifo_almost_full) begin                // if we got more data in the input FIFO and no full condition on output, we can go and transmit another 32 bytes
     						        next_state     = `LOAD_BYTE0 ;
     							    rd_en_fifo_in  = 1;
     						    end	
@@ -835,6 +835,19 @@ module gzip_top
         .dout   ({out_last_fifo_64,dout_out_fifo_64}),
         .empty  (empty_out_fifo_64)
     );
+
+    reg [4:0] fifo_occupancy;
+    wire out_fifo_almost_full;
+
+    always@(posedge clk)
+        if(reset_fifo)
+            fifo_occupancy <= 0;
+        else if(wr_en_fifo_out & ~rd_en_fifo_out_64)
+            fifo_occupancy <= fifo_occupancy + 1;
+        else if(~wr_en_fifo_out & rd_en_fifo_out_64)
+            fifo_occupancy <= fifo_occupancy - 1;
+
+    assign out_fifo_almost_full = fifo_occupancy > 8;
 
     reg dout_out_fifo_64_toggle;
 
