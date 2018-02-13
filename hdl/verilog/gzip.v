@@ -209,7 +209,7 @@ module gzip
     //input AXIS adapter
     axis_async_fifo
     #(
-        .DEPTH_LOG(5),
+        .DEPTH_LOG(10),
         .TDATA_SIZE(32),
         .TUSER_SIZE(1)
     )
@@ -235,7 +235,7 @@ module gzip
     //output AXIS adapter
     axis_async_fifo
     #(
-        .DEPTH_LOG(5),
+        .DEPTH_LOG(10),
         .TDATA_SIZE(32),
         .TUSER_SIZE(1)
     )
