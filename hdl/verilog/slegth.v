@@ -291,7 +291,7 @@ module slength
 
 
 	// This pipeline stage is used to calculate slength_huff_len and correlate it with the slength_huff output value
-    always @( posedge clk or negedge rst_n)
+    always @( posedge clk)
     begin
     	if (!rst_n) match_length_in_buff <= 0;       
 	    else        match_length_in_buff <= match_length_in;		

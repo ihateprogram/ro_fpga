@@ -568,7 +568,7 @@ module sliteral
 	endfunction	
 	
 	// The number of valid bits of the data output
-    always @( posedge clk or negedge rst_n)
+    always @( posedge clk)
     begin
     	if (!rst_n)                                       sliteral_valid_bits <= 0;
 		else if ( gzip_last_symbol                      ) sliteral_valid_bits <= 4'd7;
