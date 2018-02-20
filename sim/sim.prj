@@ -9,6 +9,7 @@ verilog work ../hdl/verilog/reg_PE.v
 verilog work ../hdl/verilog/lz77_match_filter.v
 verilog work ../hdl/verilog/gzip.v
 verilog work ../hdl/verilog/lz77_encoder.v
+verilog work ../hdl/verilog/huffman_encoder.v
 verilog work ../hdl/verilog/priority_encoder.v
 verilog work ../hdl/verilog/srl_fifo.v
 verilog work ../hdl/verilog/gzip_top.v

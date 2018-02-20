@@ -9,10 +9,10 @@ Description:   Using this module the LZ77 encoder calculates the maximum length 
             2. The input shift data has a 8bit width and shifts characters from the search dictionary 1 byte at a time.
             3. The input search data has a 8bit width and when the search function is enabled, the module returns the address where the specific data has been found.
                This is a SHIFTABLE CAM behaviour.            
-            4. The module outputs: A. the next_symbol that should be encoded  
+            4. The module outputs: A. the match_next_symbol that should be encoded  
                                    B. the match_position (position pointer) where the string match starts (starts from 0)
                                    C. the match_length of the string that has been recognized 
-								   D. an output_enable signal that shows the other outputs of the module are valid
+								   D. the match_valid signal shows the other outputs of the module are valid
 */
 
 
@@ -27,21 +27,49 @@ module lz77_encoder
 		parameter CNT_WIDTH = 7     // The counter size must be changed according to the maximum match length
 	 )
     (
-    // Module inputs
+    // Clock/Reset inputs
     input clk,	
     input rst_n,
-    input data_valid,
-    input [DATA_WIDTH-1:0] input_data,	
 
-    // Module outputs 
-    output [DICTIONARY_DEPTH_LOG-1:0] match_position,
-	output reg [CNT_WIDTH-1:0]        match_length,
-	output [DATA_WIDTH-1:0]           next_symbol,
-	output output_enable	
+    // Data inputs
+    input input_valid,
+    input [DATA_WIDTH-1:0] input_data,
+    input input_last,
+
+    // Symbol outputs 
+    output reg [DICTIONARY_DEPTH_LOG:0]   match_position,
+	output reg [CNT_WIDTH-1:0]            match_length,
+	output reg [DATA_WIDTH-1:0]           match_next_symbol,
+	output reg                            match_valid,
+    output reg                            output_valid,
+    output reg                            output_last
 
     );
 
-	
+    //check parameters
+    initial begin
+        if(2**DICTIONARY_DEPTH_LOG != DICTIONARY_DEPTH) begin
+            $display("Please make sure DICTIONARY_DEPTH is equal to 2^DICTIONARY_DEPTH_LOG");
+            $finish();
+        end
+    end
+    initial begin
+        if(2**CNT_WIDTH <= LOOK_AHEAD_BUFF_DEPTH) begin
+            $display("Please make sure LOOK_AHEAD_BUFF_DEPTH is smaller than 2^CNT_WIDTH");
+            $finish();
+        end
+    end
+
+    wire [DICTIONARY_DEPTH_LOG:0]   match_position_wire;
+	reg  [CNT_WIDTH-1:0]            match_length_reg;
+	reg  [CNT_WIDTH-1:0]            match_length_reg2;
+	wire                            match_valid_wire;	
+	reg                             match_valid_reg;
+	reg  [DATA_WIDTH-1:0]           match_next_symbol_reg;
+    reg                             output_valid_reg;
+    reg                             output_last_reg;
+    
+
     // Combinational logic
     wire match_global;
 	wire set_match;
@@ -50,8 +78,36 @@ module lz77_encoder
 	(* dont_touch = "{true}" *) wire [DICTIONARY_DEPTH-1:0] match_PE;
 	(* dont_touch = "{true}" *) reg [DICTIONARY_DEPTH-1:0] serial_enable; 
 	wire match_length_max;
-	
-	assign next_symbol = input_data;
+
+    always @(posedge clk or negedge rst_n)
+    begin
+	   if(!rst_n) begin
+	      match_position <= 0;
+          match_length_reg2 <= 0;
+          match_length <= 0;
+          match_valid_reg <= 0;
+          match_valid <= 0;
+          match_next_symbol_reg <= 0;
+          match_next_symbol <= 0;
+          output_valid_reg <= 0;
+          output_valid <= 0;
+          output_last_reg <= 0;
+          output_last <= 0;
+	   end
+	   else begin
+	      match_position <= match_position_wire;
+          match_length_reg2 <= match_length_reg;
+          match_length <= match_length_reg2;
+          match_valid_reg <= match_valid_wire;
+          match_valid <= match_valid_reg;
+          match_next_symbol_reg <= input_data;
+          match_next_symbol <= match_next_symbol_reg;
+          output_valid_reg <= input_valid;
+          output_valid <= output_valid_reg;
+          output_last_reg <= input_last;
+          output_last <= output_last_reg;
+	   end 
+	end
 
 	// This is used to disable the PE until the first valid byte reaches that cell (removes 0x00 fake pointers) 
     always @(posedge clk or negedge rst_n)
@@ -60,7 +116,7 @@ module lz77_encoder
 	      serial_enable[0]                    <= 0;
 		  serial_enable[DICTIONARY_DEPTH-1:1] <= 0;
 	   end
-	   else if (data_valid == 1) begin
+	   else if (input_valid == 1) begin
 	      serial_enable[DICTIONARY_DEPTH-1:0] <= (serial_enable[DICTIONARY_DEPTH-1:0] << 1) | 1'b1; // enable cells one by one
 	   end 
 	end
@@ -73,12 +129,12 @@ module lz77_encoder
 		    if ( i==0 )			      
                 reg_PE REG_PE_i (.clk, .rst_n,
 	                           .in_reg_PE(input_data[7:0]), .in_cmp_data(input_data[7:0]),
-                               .shift_en(data_valid), .set_match(set_match & serial_enable[i]),
+                               .shift_en(input_valid), .set_match(set_match & serial_enable[i]),
                                .out_reg_PE(out_reg_PE[i]),  .match(match_PE[i]));					
 			else 			
 				reg_PE REG_PE_i (.clk, .rst_n,
 	                           .in_reg_PE(out_reg_PE[i-1]), .in_cmp_data(input_data[7:0]),
-                               .shift_en(data_valid), .set_match(set_match & serial_enable[i]),
+                               .shift_en(input_valid), .set_match(set_match & serial_enable[i]),
                                .out_reg_PE(out_reg_PE[i]), .match(match_PE[i]));
         end
     endgenerate
@@ -86,26 +142,26 @@ module lz77_encoder
 	
 	assign match_global = |match_PE[DICTIONARY_DEPTH-1:0];    // big OR gate used for match detection
 	
-	// The match calculation will function without data_valid=1 but the downstream modules must not see 
-	// the output_enable signal set when no data is processed.
-    assign output_enable = (data_valid & ~match_global) | match_length_max;
+	// The match calculation will function without input_valid=1 but the downstream modules must not see 
+	// the match_valid signal set when no data is processed.
+    assign match_valid_wire = (input_valid & ~match_global) | match_length_max;
 
 	// Create the signal that shows the maximum value of the counter
-	assign match_length_max = (match_length == LOOK_AHEAD_BUFF_DEPTH-1);
+	assign match_length_max = (match_length_reg == LOOK_AHEAD_BUFF_DEPTH-1);
 	
     // Createa a counter which will count the matching length. 
-	// At each positive edge if match=1 and data_valid=1 then the counter will increment.		
+	// At each positive edge if match=1 and input_valid=1 then the counter will increment.		
 	always @(posedge clk or negedge rst_n)
 	begin
-	    if(!rst_n)                                               match_length <= 0;
-		else if (match_global && data_valid && match_length_max) match_length <= 0;                     // the counter should reset if max value is reached
-		else if (match_global && data_valid)                     match_length <= match_length + 1;      // the counter must not increment but will preservi its value
-        else                                                     match_length <= 0;
+	    if(!rst_n)                                               match_length_reg <= 0;
+		else if (match_global && input_valid && match_length_max) match_length_reg <= 0;                     // the counter should reset if max value is reached
+		else if (match_global && input_valid)                     match_length_reg <= match_length_reg + 1;      // the counter must not increment but will preservi its value
+        else                                                     match_length_reg <= 0;
 	end
 	
 	// Until the first match occurs, the PEs need the match_ff high.
-	// When the output_enable signal is set, it means data is outputed and the search for a new match should start again.
-	assign set_match = output_enable;
+	// When the match_valid signal is set, it means data is outputed and the search for a new match should start again.
+	assign set_match = match_valid_wire;
 	
 	
 	/////////////////////////////////////////// Priority encoder which returns the biggest match position in decimal ///////////////////////////////////////////
@@ -226,6 +282,6 @@ module lz77_encoder
             default: match_position_add = 0;//{(DICTIONARY_DEPTH_LOG-2){1'bx}};
         endcase
 
-    assign match_position = match_position_mux + match_position_add;
+    assign match_position_wire = match_position_mux + match_position_add + 1;
 		
 endmodule
