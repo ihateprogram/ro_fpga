@@ -138,29 +138,11 @@ module gzip_top
 	reg block_size_error;               // when in Fixed Huffman mode the block size > 32768 or in NO_COMRESSION and > 65536
 	reg btype_error;                    // when btype is other type than the 2 suported types
 	
-    reg [DICTIONARY_DEPTH_LOG-1:0] match_position_buf0;  // The _buff0 signals are the first stage of buffers and go in _buff1 flops
-	reg [CNT_WIDTH-1:0]            match_length_buf0;
-	reg [DATA_WIDTH-1:0]           next_symbol_buf0;
-	reg                            output_enable_buf0;
-    reg                            gzip_last_symbol_buf0;
-	
-    reg [DICTIONARY_DEPTH_LOG-1:0] match_position_buf1;
-	reg [CNT_WIDTH-1:0]            match_length_buf1;
-	reg [DATA_WIDTH-1:0]           next_symbol_buf1;
-	reg                            output_enable_buf1;
-    reg                            gzip_last_symbol_buf1;
-
-    //reg [DICTIONARY_DEPTH_LOG-1:0] match_position_buf1;
-	reg [CNT_WIDTH-1:0]            match_length_buf2;
-	reg [DATA_WIDTH-1:0]           next_symbol_buf2;
-	reg                            output_enable_buf2;
-    reg                            gzip_last_symbol_buf2;
-	
 	reg [3:0] end_block_cnt;
 	reg load_data_in_lz77;
 	reg load_data_in_crc32;
 	reg gzip_done;
-	reg gzip_last_symbol;
+	wire gzip_last_symbol;
 	
 	// Combinational logic section
     wire [DICTIONARY_DEPTH_LOG-1:0] match_position;
@@ -236,7 +218,7 @@ module gzip_top
 	
 	// The input data must be reordered and put inside a 4x8bit shift register to be fed to the LZ77_encoder/decoder
     //// Create the state sequencer
-    always @(posedge clk or negedge rst_n)
+    always @(posedge clk)
 	begin
         if(!rst_n)
     	    state <= `IDLE;
@@ -259,8 +241,6 @@ module gzip_top
 		word_merge_in_last  = 0;
 		word_merge_in_size  = 0;
 		word_merge_in_data  = 0;		
-		
-		gzip_last_symbol    = 0;
 		
         case ( state )
             `IDLE       : begin 
@@ -392,21 +372,19 @@ module gzip_top
 			`END_OF_BLOCK : begin
                             `ifdef REMOVE_ME text_gzip_top <="END_OF_BLOCK"; `endif
 							if (bfinal && btype_no_compression)         next_state = `CRC32; // if we are at the last data block then we can write the CRC and the ISIZE parameters (only for no compression) 
-							else if (bfinal && btype_fixed_compression) begin
-							    if (end_block_cnt == 3'd1) begin
-								   gzip_last_symbol    = 1;
-								   next_state          = `END_OF_BLOCK;
-								end 
-								else if (end_block_cnt_max) next_state = `PAD_WITH_ZEROS;
+							else if (btype_fixed_compression) begin
+							    if (end_block_cnt_max)
+                                    if(bfinal) next_state = `PAD_WITH_ZEROS;
+                                    else       next_state = `IDLE;
 								else                        next_state = `END_OF_BLOCK;
 						    end
                         end		
 
 			`PAD_WITH_ZEROS : begin  // We pad with zeros to byte boundry only if huffman_pad_bits > 0
 			                `ifdef REMOVE_ME text_gzip_top ="PAD_WITH_ZEROS"; `endif
-							if (huffman_pad_bits != 0) begin        /// XXXX this doesn't work. It needs to add 8 bits 
+							if (word_merge_pad_bits != 0) begin        /// XXXX this doesn't work. It needs to add 8 bits 
 							   word_merge_in_valid = 1;
-							   word_merge_in_size  = huffman_pad_bits;   
+							   word_merge_in_size  = word_merge_pad_bits;   
 							   word_merge_in_data  = 32'b0;
 							end 
 							
@@ -446,12 +424,13 @@ module gzip_top
 	
 	// This counter is used to stay in the END_OF_BLOCK state for 6 clock cycles before writing the CRC in the output FIFO
 	assign end_block_cnt_max = (end_block_cnt == 8);
-	
-	always @(posedge clk or negedge rst_n)
+    assign gzip_last_symbol = (end_block_cnt == 1);	
+
+
+	always @(posedge clk)
 	begin
-	    if(!rst_n)                    end_block_cnt <= 0;		
-        else if (state_end_of_block)  end_block_cnt <= end_block_cnt + 1;
-		else if (end_block_cnt_max)   end_block_cnt <= 0;		
+	    if(!rst_n | (state != `END_OF_BLOCK)) end_block_cnt <= 0;		
+        else if (state_end_of_block)          end_block_cnt <= end_block_cnt + 1;
 	end
 	
 	// If the 0x00 of EOF character is recognized the the input file has reached an end
@@ -483,7 +462,7 @@ module gzip_top
 	//====================================================================================================================	
 	
 	// This register is set after the frame header is received. After the LEN number of processed bytes this flop is cleared again.
-    always @(posedge clk or negedge rst_n)
+    always @(posedge clk)
 	begin
         if(!rst_n)
             block_header_received <= 1'b0;		
@@ -497,7 +476,7 @@ module gzip_top
 	// Byte no.     |    3   |    2   |    1   |    0   | 
 	// Bit no.      |76543210|76543210|76543210|76543210|                     
 	//              |xxxxxxxF|xxxxxxxx  BLOCK_LEN[15:0] |
-    always @(posedge clk or negedge rst_n)
+    always @(posedge clk)
 	begin
         if(!rst_n) begin
             bfinal     <= 0;
@@ -510,14 +489,14 @@ module gzip_top
     end		
 
 	// BTYPE should be set by software before operating the module
-    always @(posedge clk or negedge rst_n)
+    always @(posedge clk)
 	begin
         if(!rst_n) btype <= 0;				   
         else       btype <= btype_in;
     end		
 	
 	// At each new block updata the value of isize. We will obtain the "<file_data_length> mod 32" value. 
-    always @(posedge clk or negedge rst_n)
+    always @(posedge clk)
 	begin
         if(!rst_n) begin
             isize <= 0;			
@@ -528,7 +507,7 @@ module gzip_top
     end		
 
     // This flop is used by the ISIZE state to stay 2 clock cycles to write in the output FIFO all data from word_merge
-    always @(posedge clk or negedge rst_n)
+    always @(posedge clk)
 	begin
         if(!rst_n) begin
             isize_stay <= 0;			
@@ -552,7 +531,7 @@ module gzip_top
 	//assign byte_counter_inc = (state == `LOAD_BYTE3) | (state == `LOAD_BYTE2) | (state == `LOAD_BYTE1) | (state == `LOAD_BYTE0);
 	assign byte_counter_inc = next_state_load_byte0 | next_state_load_byte1 | next_state_load_byte2 | next_state_load_byte3;
 	
-    always @(posedge clk or negedge rst_n)
+    always @(posedge clk)
 	begin
 	    if (!rst_n)                      byte_counter <= 32'h0;           // the reset value must be different that 0 to avoid generating maximum condition
 		else if (state_start_block) byte_counter <= 32'h0; 
@@ -566,21 +545,21 @@ module gzip_top
 	//====================================================================================================================
     
 	// Btype = 01 and block_size > 32768 then we have a error regarding block size.
-    always @(posedge clk or negedge rst_n)
+    always @(posedge clk)
 	begin
 	    if (!rst_n)                                                   block_size_error <= 1'b0;
 		else if (btype_fixed_compression && (block_size > 16'd32768)) block_size_error <= 1'b1;
         else if (btype_no_compression    && (block_size > 17'd65536)) block_size_error <= 1'b1;
     end	
 	
-	always @(posedge clk or negedge rst_n)
+	always @(posedge clk)
 	begin
 	    if (!rst_n)                                                      btype_error <= 1'b0;
 		else if ((!btype_fixed_compression) && (!btype_no_compression))  btype_error <= 1'b1;
     end	
 	
 	// This bit shows that the last block of data has been compressed. This must be software reset.
-	always @(posedge clk or negedge rst_n)
+	always @(posedge clk)
 	begin
 	    if (!rst_n)                  gzip_done <= 1'b0;
 		else if (word_merge_in_last) gzip_done <= 1'b1;
@@ -594,13 +573,13 @@ module gzip_top
 	//====================================================================================================================
 	
 	// The pipeline stage will improve sinthesys results and will decrease the delay through the combinational logic.
-    always @(posedge clk or negedge rst_n)
+    always @(posedge clk)
 	begin
 	    if (!rst_n) load_data_in_crc_buff <= 0;
 	    else        load_data_in_crc_buff <= load_data_in | load_data_in_crc32;
     end	
 
-    always @(posedge clk or negedge rst_n)
+    always @(posedge clk)
 	begin
 	    if (!rst_n) begin 
 		    load_data_in_lz77 <= 0;
@@ -611,7 +590,7 @@ module gzip_top
     end		
    	
 	// We need 2 sets of buffers to limit the fanout of the registers that provide signals to the CRC32 and LZ77 encoder
-    always @(posedge clk or negedge rst_n)
+    always @(posedge clk)
 	begin
 	    if (!rst_n) begin
          	data_in_buff     <= 0;			
@@ -621,7 +600,7 @@ module gzip_top
 		end
     end
 
-    always @(posedge clk or negedge rst_n)
+    always @(posedge clk)
 	begin
 	    if (!rst_n)	data_in_crc_buff <= 0;			
 	    else        data_in_crc_buff <= btype_no_compression ? word_merge_in_data[7:0] : gzip_data_in;
@@ -691,8 +670,7 @@ module gzip_top
     wire [DICTIONARY_DEPTH_LOG:0] lz77_filt_match_position;
 	wire [CNT_WIDTH-1:0]          lz77_filt_match_length;
 	wire [DATA_WIDTH-1:0]         lz77_filt_match_next_symbol;
-	wire                          lz77_filt_match_valid;
-    wire                          lz77_filt_valid;
+	wire                          lz77_filt_match_valid;    
     wire                          lz77_filt_last;
 
     lz77_match_filter
@@ -719,7 +697,6 @@ module gzip_top
         .output_match_length        (lz77_filt_match_length),
         .output_match_next_symbol   (lz77_filt_match_next_symbol),
         .output_match_valid         (lz77_filt_match_valid),
-        .output_valid_symbol        (lz77_filt_valid),
         .output_last_symbol         (lz77_filt_last)
         );
 
@@ -729,8 +706,6 @@ module gzip_top
     wire [63:0] huffman_code;
     wire [6:0]  huffman_code_length;
     wire        huffman_code_valid;
-    wire [2:0]  huffman_pad_bits;
-    reg  [2:0]  huffman_extra_bits;
 
     huffman_encoder
     #( 
@@ -753,14 +728,6 @@ module gzip_top
         .code_length    (huffman_code_length),
         .code_valid     (huffman_code_valid)
     );
-
-    always @(posedge clk)
-        if(!rst_n)
-            huffman_extra_bits <= 3;//to take BFINAL and BTYPE into consideration
-        else if(huffman_code_valid)
-            huffman_extra_bits <= huffman_extra_bits + huffman_code_length[2:0];
-    
-    assign huffman_pad_bits = 8 - huffman_extra_bits;
 
     //====================================================================================================================	
 	//========================================== Instantiate word_merge module ===========================================
@@ -805,6 +772,16 @@ module gzip_top
         else if(in_valid)
             output_size <= output_size + in_size;
 
+    wire [2:0]  word_merge_pad_bits;
+    reg  [2:0]  word_merge_extra_bits;
+
+    always @(posedge clk)
+        if(!rst_n)
+            word_merge_extra_bits <= 0;
+        else if(in_valid)
+            word_merge_extra_bits <= word_merge_extra_bits + in_size[2:0];
+    
+    assign word_merge_pad_bits = 8 - word_merge_extra_bits;
 
     //====================================================================================================================	
 	//========================================== Instantiate the Output FIFO =============================================

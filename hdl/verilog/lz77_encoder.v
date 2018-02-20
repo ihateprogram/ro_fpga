@@ -68,7 +68,7 @@ module lz77_encoder
 	reg  [DATA_WIDTH-1:0]           match_next_symbol_reg;
     reg                             output_valid_reg;
     reg                             output_last_reg;
-    
+    reg                             input_valid_d1;
 
     // Combinational logic
     wire match_global;
@@ -79,7 +79,7 @@ module lz77_encoder
 	(* dont_touch = "{true}" *) reg [DICTIONARY_DEPTH-1:0] serial_enable; 
 	wire match_length_max;
 
-    always @(posedge clk or negedge rst_n)
+    always @(posedge clk)
     begin
 	   if(!rst_n) begin
 	      match_position <= 0;
@@ -110,7 +110,7 @@ module lz77_encoder
 	end
 
 	// This is used to disable the PE until the first valid byte reaches that cell (removes 0x00 fake pointers) 
-    always @(posedge clk or negedge rst_n)
+    always @(posedge clk)
 	begin
 	   if(!rst_n) begin
 	      serial_enable[0]                    <= 0;
@@ -146,17 +146,17 @@ module lz77_encoder
 	// the match_valid signal set when no data is processed.
     assign match_valid_wire = (input_valid & ~match_global) | match_length_max;
 
-	// Create the signal that shows the maximum value of the counter
-	assign match_length_max = (match_length_reg == LOOK_AHEAD_BUFF_DEPTH-1);
+	// signal max length of match either when counter reaches maximum value or when end of block
+	assign match_length_max = input_last | (match_length_reg == LOOK_AHEAD_BUFF_DEPTH-1);
 	
     // Createa a counter which will count the matching length. 
 	// At each positive edge if match=1 and input_valid=1 then the counter will increment.		
-	always @(posedge clk or negedge rst_n)
+	always @(posedge clk)
 	begin
-	    if(!rst_n)                                               match_length_reg <= 0;
+	    if(!rst_n | input_last)                                   match_length_reg <= 0;
 		else if (match_global && input_valid && match_length_max) match_length_reg <= 0;                     // the counter should reset if max value is reached
 		else if (match_global && input_valid)                     match_length_reg <= match_length_reg + 1;      // the counter must not increment but will preservi its value
-        else                                                     match_length_reg <= 0;
+        else if (input_valid)                                     match_length_reg <= 0;
 	end
 	
 	// Until the first match occurs, the PEs need the match_ff high.
@@ -248,7 +248,7 @@ module lz77_encoder
             match_position_valid_1_reg <= 0;
             match_position_valid_2_reg <= 0;
             match_position_valid_3_reg <= 0;
-        end else begin
+        end else if(output_valid_reg) begin
             match_position_0_reg <= match_position_0;
             match_position_1_reg <= match_position_1;
             match_position_2_reg <= match_position_2;
