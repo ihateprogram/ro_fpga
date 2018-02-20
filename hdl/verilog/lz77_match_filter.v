@@ -69,7 +69,7 @@ always @(posedge clk) begin
     output_match_valid  <= (detect_match2) ? 1 : pipe_match_valid[1];
 end
 
-assign detect_match1 = (input_match_valid & input_valid_symbol & (input_match_length == 1));
-assign detect_match2 = (input_match_valid & input_valid_symbol & (input_match_length == 2));
+assign detect_match1 = (input_match_valid & (input_match_length == 1));
+assign detect_match2 = (input_match_valid & (input_match_length == 2));
 
 endmodule
