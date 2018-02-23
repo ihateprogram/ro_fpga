@@ -17,7 +17,7 @@ module priority_enc
 	// Register the input that goes in the priority encoder
 	reg [ENCODER_DEPTH-1:0] A;
 
-	always @(posedge clk or negedge rst_n)
+	always @(posedge clk)
 	begin
 	    if(!rst_n)  A <= 0;
 		else        A <= A_IN;

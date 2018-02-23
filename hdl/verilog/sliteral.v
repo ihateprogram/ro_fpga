@@ -566,26 +566,9 @@ module sliteral
 	    inbetween = (literal_in >= low && literal_in <= high) ? 1'b1 : 1'b0;
 	end	
 	endfunction	
-
-    // Make a register for the data output. The value of the output register is updated only when the valid_in signal is set.
-    /*always @( posedge clk or negedge rst_n)       // The reset is async in order to implement the LUT above with RAM
-    begin
-    	if (!rst_n)                sliteral_data <= 0;
-		else if (gzip_last_symbol) sliteral_data <= `LIT_CODE256;	
-	    //else if (literal_valid_in) sliteral_data <= sliteral_data_lut;       
-	    else                       sliteral_data <= sliteral_data_lut;       
-    end	*/
-
-	
-	// Create the valid signal for downstream blocks
-    /*always @( posedge clk or negedge rst_n)
-    begin
-    	if (!rst_n) sliteral_valid_out <= 0;
-	    else        sliteral_valid_out <= literal_valid_in ; 		
-    end */
 	
 	// The number of valid bits of the data output
-    always @( posedge clk or negedge rst_n)
+    always @( posedge clk)
     begin
     	if (!rst_n)                                       sliteral_valid_bits <= 0;
 		else if ( gzip_last_symbol                      ) sliteral_valid_bits <= 4'd7;

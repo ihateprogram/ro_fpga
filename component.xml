@@ -1086,6 +1086,10 @@
         <spirit:fileType>verilogSource</spirit:fileType>
       </spirit:file>
       <spirit:file>
+        <spirit:name>hdl/verilog/huffman_encoder.v</spirit:name>
+        <spirit:fileType>verilogSource</spirit:fileType>
+      </spirit:file>
+      <spirit:file>
         <spirit:name>hdl/verilog/priority_encoder.v</spirit:name>
         <spirit:fileType>verilogSource</spirit:fileType>
       </spirit:file>

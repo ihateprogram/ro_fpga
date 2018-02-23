@@ -55,7 +55,7 @@ module sdht
     input  clk,	
     input  rst_n,	
 	//input  match_pos_valid_in,
-	input  [DICTIONARY_DEPTH_LOG-1:0]  match_pos_in,
+	input  [DICTIONARY_DEPTH_LOG:0]  match_pos_in,
 	
     // Module outputs
 	output  [17:0]  sdht_data_merged,   // 18 bits { <5bit Huffman>, 13 bit binary code}
@@ -290,7 +290,7 @@ module sdht
 		end 
     end 			
 
-    function inbetween (input [DICTIONARY_DEPTH_LOG-1:0] match_pos_in, input [DICTIONARY_DEPTH_LOG-1:0] low, input [DICTIONARY_DEPTH_LOG-1:0] high);
+    function inbetween (input [DICTIONARY_DEPTH_LOG:0] match_pos_in, input [DICTIONARY_DEPTH_LOG:0] low, input [DICTIONARY_DEPTH_LOG:0] high);
 	begin
 	    inbetween = (match_pos_in >= low && match_pos_in <= high) ? 1'b1 : 1'b0;
 	end	
