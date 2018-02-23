@@ -9,7 +9,7 @@
          </top_modules>
       </db_ref>
    </db_ref_list>
-   <WVObjectSize size="87" />
+   <WVObjectSize size="85" />
    <wave_markers>
       <marker time="2135000000" label="" />
    </wave_markers>
@@ -2852,6 +2852,7 @@
       <wvobject fp_name="/test_gzip/dut/gzip_top_i0/lz_filt_i0/side_pipe_symbol" type="array" db_ref_id="1">
          <obj_property name="ElementShortName">side_pipe_symbol[1:0,7:0]</obj_property>
          <obj_property name="ObjectShortName">side_pipe_symbol[1:0,7:0]</obj_property>
+         <obj_property name="Radix">ASCIIRADIX</obj_property>
       </wvobject>
       <wvobject fp_name="/test_gzip/dut/gzip_top_i0/lz_filt_i0/detect_match1" type="logic" db_ref_id="1">
          <obj_property name="ElementShortName">detect_match1</obj_property>
@@ -3285,15 +3286,5 @@
    <wvobject fp_name="/test_gzip/dut/gzip_top_i0/end_block_cnt_max" type="logic" db_ref_id="1">
       <obj_property name="ElementShortName">end_block_cnt_max</obj_property>
       <obj_property name="ObjectShortName">end_block_cnt_max</obj_property>
-   </wvobject>
-   <wvobject fp_name="/test_gzip/dut/gzip_top_i0/huffman_extra_bits" type="array" db_ref_id="1">
-      <obj_property name="ElementShortName">huffman_extra_bits[2:0]</obj_property>
-      <obj_property name="ObjectShortName">huffman_extra_bits[2:0]</obj_property>
-      <obj_property name="Radix">UNSIGNEDDECRADIX</obj_property>
-   </wvobject>
-   <wvobject fp_name="/test_gzip/dut/gzip_top_i0/huffman_pad_bits" type="array" db_ref_id="1">
-      <obj_property name="ElementShortName">huffman_pad_bits[2:0]</obj_property>
-      <obj_property name="ObjectShortName">huffman_pad_bits[2:0]</obj_property>
-      <obj_property name="Radix">UNSIGNEDDECRADIX</obj_property>
    </wvobject>
 </wave_config>
