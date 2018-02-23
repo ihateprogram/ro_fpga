@@ -547,9 +547,9 @@ module gzip_top
 	// Btype = 01 and block_size > 32768 then we have a error regarding block size.
     always @(posedge clk)
 	begin
-	    if (!rst_n)                                                   block_size_error <= 1'b0;
-		else if (btype_fixed_compression && (block_size > 16'd32768)) block_size_error <= 1'b1;
-        else if (btype_no_compression    && (block_size > 17'd65536)) block_size_error <= 1'b1;
+	    if (!rst_n)                                                          block_size_error <= 1'b0;
+		else if (btype_fixed_compression && (block_size > DICTIONARY_DEPTH)) block_size_error <= 1'b1;
+        else if (btype_no_compression    && (block_size > 17'd65536))        block_size_error <= 1'b1;
     end	
 	
 	always @(posedge clk)
