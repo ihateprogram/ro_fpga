@@ -95,6 +95,14 @@ module gzip_top
 	output irq
     );
 
+    //check parameters
+    initial begin
+        if(FIFO_DEPTH_LOG < 2) begin
+            $display("Please make sure FIFO_DEPTH_LOG is greater than 2");
+            $finish();
+        end
+    end
+	
     `ifdef REMOVE_ME
         reg [8*12:1] text_gzip_top = "empty";
     `endif
