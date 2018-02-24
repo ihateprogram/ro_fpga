@@ -47,7 +47,6 @@ Description:  This file is a Static Length Huffman Tree. These codes represent t
 `define LEN_CODE286 8'd198
 `define LEN_CODE287 8'd199
 
-//`define LENGTH_LIMIT66
 
 module slength
     (
@@ -217,7 +216,6 @@ module slength
                             slength_extra_bits_val <= match_length_in - 6'd59;							
     	    	        end
 						
-    `ifndef LENGTH_LIMIT66 	                              // This has the role to limit the output of the Slength module to 8+3=11 bits	    
                 inbetween(match_length_in, 9'd67, 9'd82)  : begin
 		    	            slength_huff           <= `LEN_CODE277;
                             slength_extra_bits_no  <= 4;
@@ -265,15 +263,14 @@ module slength
                             slength_extra_bits_no  <= 5;
                             slength_extra_bits_val <= match_length_in - 8'd227;						
     	    	        end
-            
-                inbetween(match_length_in, 9'd258, 9'd258)  : begin
+
+                (match_length_in == 9'd258)  : begin
 		    	            slength_huff           <= `LEN_CODE285; 
                             slength_extra_bits_no  <= 0;
                             slength_extra_bits_val <= 0;							
     	    	        end  
-	`endif
-	
-    	    	default : begin
+
+				default : begin
 		    	            slength_huff           <= `LEN_CODE257;
                             slength_extra_bits_no  <= 0;
                             slength_extra_bits_val <= 0;							

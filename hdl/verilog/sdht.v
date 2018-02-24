@@ -43,7 +43,7 @@
 `define DIST_CODE28	5'd28
 `define DIST_CODE29	5'd29
 
-`define DEPTH_LIMIT1024         // this is used to help synthesys tool to cut unused hardware more efficiently
+`define DEPTH_LIMIT1024         // this is used to help synthesis tool to cut unused hardware more efficiently
 
 module sdht
     #(      	
@@ -68,9 +68,6 @@ module sdht
 	reg [4 :0]  sdht_dist;
 	wire [4 :0]  sdht_dist_rev;
 	
-	//reg [17:0]  sdht_data_merged_buff;                      // this buffer is used to reverse bits inside from the distance vector
-	
-	//wire [17:0]  sdht_data_merged_rev;
 	
     //====================================================================================================================	
 	//================================= Create Huffman codes LUT for input distances =====================================

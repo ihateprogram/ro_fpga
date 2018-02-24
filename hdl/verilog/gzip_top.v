@@ -45,17 +45,19 @@ Description:   This top module contains control logic for the LZ77 module in ord
 
 //`include "../rtl_code/functions.v"
 
-`define IDLE              8'd0
-`define START_OF_BLOCK    8'd1
-`define BLOCK_LEN         8'd2
-`define LOAD_BYTE0        8'd3
-`define LOAD_BYTE1        8'd4
-`define LOAD_BYTE2        8'd5
-`define LOAD_BYTE3        8'd6
-`define END_OF_BLOCK      8'd7
-`define PAD_WITH_ZEROS    8'd8
-`define CRC32             8'd9
-`define ISIZE             8'd10
+`define IDLE             4'b0000  // Gray counter values for the state machine -- https://www.browserling.com/tools/dec-to-gray
+`define START_OF_BLOCK   4'b0001
+`define BLOCK_LEN        4'b0011
+`define LOAD_BYTE0       4'b0010
+`define LOAD_BYTE1       4'b0110
+`define LOAD_BYTE2       4'b0111
+`define LOAD_BYTE3       4'b0101
+`define END_OF_BLOCK     4'b0100
+`define PAD_WITH_ZEROS   4'b1100
+`define CRC32            4'b1101
+`define ISIZE            4'b1111
+
+
 
 //`define REMOVE_ME
 
@@ -67,7 +69,8 @@ module gzip_top
         parameter DICTIONARY_DEPTH = 1024,	  // the size of the GZIP window -32k
 		parameter DICTIONARY_DEPTH_LOG = 10,
 	    parameter LOOK_AHEAD_BUFF_DEPTH = 66,     // the max length of the GZIP match
-		parameter CNT_WIDTH = 7                   // The counter size must be changed according to the maximum match length			
+		parameter CNT_WIDTH = 7,                  // The counter size must be changed according to the maximum match length
+        parameter FIFO_DEPTH_LOG = 8 		
 	)
     (
     // Module inputs
@@ -92,6 +95,14 @@ module gzip_top
 	output irq
     );
 
+    //check parameters
+    initial begin
+        if(FIFO_DEPTH_LOG < 2) begin
+            $display("Please make sure FIFO_DEPTH_LOG is greater than 2");
+            $finish();
+        end
+    end
+	
     `ifdef REMOVE_ME
         reg [8*12:1] text_gzip_top = "empty";
     `endif
@@ -104,8 +115,8 @@ module gzip_top
 	reg [7:0] data_in_buff ;
 	reg [7:0] data_in_crc_buff;
 	reg load_data_in_crc_buff ;
-    reg [7:0] state        ;
-    reg [7:0] next_state   ;
+    reg [3:0] state        ;
+    reg [3:0] next_state   ;
     //reg [7:0] next_state_decoder ;
 	//reg read_data_word;
 	reg rd_en_fifo_in ;
@@ -194,7 +205,7 @@ module gzip_top
     srl_fifo
     #(
         .WIDTH(32),
-        .DEPTH_LOG(5),
+        .DEPTH_LOG(FIFO_DEPTH_LOG),
         .FALLTHROUGH("false")
     )
     fifo_in_i0
@@ -433,8 +444,6 @@ module gzip_top
         else if (state_end_of_block)          end_block_cnt <= end_block_cnt + 1;
 	end
 	
-	// If the 0x00 of EOF character is recognized the the input file has reached an end
-	//assign fifo_in_eof = (dout_in_fifo_32[7:0] == `EOF) | (dout_in_fifo_32[15:8] == `EOF) | (dout_in_fifo_32[23:16] == `EOF) | (dout_in_fifo_32[31:24] == `EOF);  
 	
 	//====================================================================================================================
 	//================================ Combinational state decoders and comparators ======================================
@@ -544,12 +553,12 @@ module gzip_top
 	//============================================ Debug and error registers =============================================
 	//====================================================================================================================
     
-	// Btype = 01 and block_size > 32768 then we have a error regarding block size.
+	// Btype = 01 and block_size > DICTIONARY_DEPTH then we have a error regarding block size.
     always @(posedge clk)
 	begin
-	    if (!rst_n)                                                   block_size_error <= 1'b0;
-		else if (btype_fixed_compression && (block_size > 16'd32768)) block_size_error <= 1'b1;
-        else if (btype_no_compression    && (block_size > 17'd65536)) block_size_error <= 1'b1;
+	    if (!rst_n)                                                          block_size_error <= 1'b0;
+		else if (btype_fixed_compression && (block_size > DICTIONARY_DEPTH)) block_size_error <= 1'b1;
+        else if (btype_no_compression    && (block_size > 17'd65536))        block_size_error <= 1'b1;
     end	
 	
 	always @(posedge clk)
@@ -794,7 +803,7 @@ module gzip_top
 	srl_fifo
     #(
         .WIDTH(64+1),
-        .DEPTH_LOG(4),
+        .DEPTH_LOG(FIFO_DEPTH_LOG-1),
         .FALLTHROUGH("true")
     )
     fifo_out_i0
@@ -811,7 +820,7 @@ module gzip_top
         .empty  (empty_out_fifo_64)
     );
 
-    reg [4:0] fifo_occupancy;
+    reg [FIFO_DEPTH_LOG-1:0] fifo_occupancy;
     wire out_fifo_almost_full;
 
     always@(posedge clk)
@@ -822,7 +831,7 @@ module gzip_top
         else if(~wr_en_fifo_out & rd_en_fifo_out_64)
             fifo_occupancy <= fifo_occupancy - 1;
 
-    assign out_fifo_almost_full = fifo_occupancy > 8;
+    assign out_fifo_almost_full = fifo_occupancy > 2**(FIFO_DEPTH_LOG-2);
 
     reg dout_out_fifo_64_toggle;
 
