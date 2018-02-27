@@ -265,9 +265,11 @@ module gzip
 
     always @(posedge core_clock) begin
         out_fifo_rden_r <= out_fifo_rden;
-        if(out_fifo_rden) begin
+        if(out_fifo_rden_r) begin
             out_fifo_data_r <= out_fifo_data;
             out_fifo_last_r <= out_fifo_last;
+        end
+        if(out_fifo_rden) begin
             out_tvalid <= 1;
         end else if(out_tready) begin
             out_tvalid <= 0;
