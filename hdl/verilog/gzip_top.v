@@ -87,7 +87,7 @@ module gzip_top
                                                   //     01 - compressed with fixed Huffman codes
 	
     // Module outputs 
-    output [119:0] debug_reg,	                  // CRC, ISIZE, other signals
+    output [127:0] debug_reg,	                  // CRC, ISIZE, other signals
     output full_in_fifo,
 	output [31:0] dout_out_fifo_32,  
     output reg last_out_fifo_32,
@@ -132,7 +132,7 @@ module gzip_top
                                         //     01 - compressed with fixed Huffman codes										
 	reg [23:0] block_size;              // 65k for uncompressed blocks and 32k for compressed blocks
 	reg [31:0] isize;                   // ISIZE = This contains the size of the original (uncompressed) input data modulo 2^32.
-    reg [24:0] output_size;             // size of output stream, in bits; NOTE: core pads with zeros up to an integer multiple of 64 bits on AXI output
+    reg [31:0] output_size;             // size of output stream, in bits; NOTE: core pads with zeros up to an integer multiple of 64 bits on AXI output
 
 	reg word_merge_in_valid;
 	reg word_merge_in_last;
