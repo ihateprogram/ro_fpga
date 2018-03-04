@@ -556,9 +556,44 @@ int main()
 #endif skip_me
 
 
+#ifdef skip_me
+   test_number = test_number + 1;
+   printf("\n\n******************** TEST %d - STATIC HUFFMAN COMPRESSION  ********************\n", test_number);
+   printf("BTYPE = BTYPE_FIXED_HUFFMAN \n");
+   printf("DATA_IN = 'xabcdefghijk', 499 x 'a', 'xabcdefghijk', 499 x 'a', 'xabcdefghijk'  \n");
+   uint8_t expected_data6[] = {
+  0xaa, 0x48, 0x4c, 0x4a, 0x4e, 0x49, 0x4d, 0x4b, 0xcf, 0xc8, 0xcc, 0xca, 0x4e, 0x4c,
+  0x1c, 0xf1, 0x30, 0x71, 0x84, 0x85, 0x41, 0x05, 0x40, 0x89, 0x23, 0x3e,
+  0xfa, 0x13, 0x47, 0x74, 0xf4, 0x03, 0x96, 0x04, 0x8f, 0x7e, 0x00, 0x58,
+  0x08, 0x79, 0xa8, 0x0a, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00 };
+
+   write_mem_array_data(BTYPE_FIXED_HUFFMAN, BTYPE_REG);
+   check_mem_array_data(BTYPE_FIXED_HUFFMAN, BTYPE_REG);
+
+   write_mem_array_data(RESET_EN, RESET_REG);
+   write_mem_array_data(RESET_DIS, RESET_REG);
+   check_mem_array_data(RESET_DIS, RESET_REG);
+
+   fdw = open("/dev/xillybus_write_32",O_WRONLY);
+   fdr = open("/dev/xillybus_read_32", O_RDONLY);    // open the file descriptors
+   send_data_to_fpga(fdw, "xabcdefghijkaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaax", 0, BFINAL0, PROCESS_PAYLOAD);
+   send_data_to_fpga(fdw, "abcdefghijkaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaxa", 0, BFINAL0, PROCESS_PAYLOAD);
+   send_data_to_fpga(fdw, "bcdefghijk", 0, BFINAL1, PROCESS_PAYLOAD);
+   data_received = read_data_from_fpga(fdr, 48);
+ 
+   // printf("\n Concatenate = %s", data_received);
+   check_compressed_data(data_received, expected_data6, 48); // expected is identical with GZIP utilitary
+
+   free(data_received);
+
+   close(fdw);
+   close(fdr);                                       // close the file descriptors
+#endif skip_me
+
 
    // Show the results of the KAT
    display_test_result ();
+
 
    return 0;
 }
