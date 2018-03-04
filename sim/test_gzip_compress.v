@@ -5,8 +5,6 @@
 
 `timescale 1 ns / 10 ps
 
-`include "../rtl_code/functions.v"
-
 `define NO_COMPRESSION      2'b00
 `define FIXED_HUFFMAN      2'b01
 `define BTYPE_UNDEFINED    2'b10
@@ -20,6 +18,16 @@
 
 module test_gzip_compress();
 
+    function integer clogb2; 
+       input [31:0] value; 
+       integer i; 
+       begin 
+          clogb2 = 0; 
+          for(i = 0; 2**i < value; i = i + 1) 
+          clogb2 = i + 1; 
+       end
+    endfunction 
+	
     parameter DATA_WIDTH = 8;
     parameter SEARCH_BUFFER_DEPTH = 8;
     parameter DICTIONARY_DEPTH = 512;
@@ -68,7 +76,7 @@ module test_gzip_compress();
     wire empty_in_fifo;	
     wire [31:0] dout_out_fifo_32;  
 	wire empty_out_fifo; 
-    wire [119:0] debug_reg;	
+    wire [127:0] debug_reg;	
     reg [7:0] byte0_in, byte1_in, byte2_in, byte3_in;
     reg [1:0] btype_in;
 	reg rev_endianess_in;
@@ -91,6 +99,8 @@ module test_gzip_compress();
 	reg [7:0] expected_data2 [0:39];
 	reg [7:0] expected_data3 [0:535];
 	reg [7:0] expected_data4 [0:535];
+	reg [7:0] expected_data5 [0:31];
+	reg [7:0] expected_data6 [0:47];
 	reg [31:0] expected_vect;
 	
 	integer data_len_exp = 0;
@@ -99,14 +109,15 @@ module test_gzip_compress();
 	initial $readmemh("D:/gzip_work/shiftable_CAM/testbench/expected_data1.txt", expected_data1);  // Read the values for expected_data1
 	initial $readmemh("D:/gzip_work/shiftable_CAM/testbench/expected_data2.txt", expected_data2);  // Read the values for expected_data2
 	initial $readmemh("D:/gzip_work/shiftable_CAM/testbench/expected_data3.txt", expected_data3);  // Read the values for expected_data3
-	initial $readmemh("D:/gzip_work/shiftable_CAM/testbench/expected_data4.txt", expected_data4);  // Read the values for expected_data3
+	initial $readmemh("D:/gzip_work/shiftable_CAM/testbench/expected_data4.txt", expected_data4);  // Read the values for expected_data4
+	initial $readmemh("D:/gzip_work/shiftable_CAM/testbench/expected_data5.txt", expected_data5);  // Read the values for expected_data5
+	initial $readmemh("D:/gzip_work/shiftable_CAM/testbench/expected_data6.txt", expected_data6);  // Read the values for expected_data6
 	
     initial begin
       #20;
       $display("\nrdata:");      
       for (i=0; i < 24; i=i+1)      
-      $display("%d:%h",i,expected_data0[i]);
-
+      $display("%d:%h",i,expected_data0[i]); // This is used only to show that the characters were read 
     end 
 	
 	
@@ -323,7 +334,7 @@ module test_gzip_compress();
 			// Read the core output data
 			data_len_exp = 48;
 			//@(negedge empty_out_fifo);			
-			for (i=0;i<(data_len_exp/4);i=i+1) begin      // 24 bytes are expected to be in the output vector
+			for (i=0;i<(data_len_exp/4);i=i+1) begin
                 read_output_fifo(data_out_rd_32);
                 expected_vect = {expected_data1[4*i], expected_data1[4*i+1], expected_data1[4*i+2], expected_data1[4*i+3]};					
                 if ( expected_vect == data_out_rd_32) begin
@@ -366,7 +377,7 @@ module test_gzip_compress();
 			// Read the core output data
 			data_len_exp = 40;
 			//@(negedge empty_out_fifo);			
-			for (i=0;i<(data_len_exp/4);i=i+1) begin      // 24 bytes are expected to be in the output vector
+			for (i=0;i<(data_len_exp/4);i=i+1) begin 
                 read_output_fifo(data_out_rd_32);
                 expected_vect = {expected_data2[4*i], expected_data2[4*i+1], expected_data2[4*i+2], expected_data2[4*i+3]};					
                 if ( expected_vect == data_out_rd_32) begin
@@ -412,7 +423,7 @@ module test_gzip_compress();
 			// Read the core output data
 			data_len_exp = 536;
 			//@(negedge empty_out_fifo);			
-			for (i=0;i<(data_len_exp/4);i=i+1) begin      // 24 bytes are expected to be in the output vector
+			for (i=0;i<(data_len_exp/4);i=i+1) begin 
                 read_output_fifo(data_out_rd_32);
                 expected_vect = {expected_data3[4*i], expected_data3[4*i+1], expected_data3[4*i+2], expected_data3[4*i+3]};					
                 if (expected_vect == data_out_rd_32) begin
@@ -427,7 +438,7 @@ module test_gzip_compress();
 				   @(negedge empty_out_fifo);
 				end 
 			end
-		`endif
+
 		
 
 	        $display("========================================================================================");
@@ -471,9 +482,118 @@ module test_gzip_compress();
 				if (empty_out_fifo && i<((data_len_exp/4)-1)) begin // Make another read only if the FIFO has data and only if it is not the last output double word
 				   @(negedge empty_out_fifo);
 				end 
-			end	
+			end				
+			
+
+	        $display("========================================================================================");
+			reset_gzip_core();
+			kat_test_index = kat_test_index + 1;
+			test_count = test_count + 1;
+			
+            $display($time, "\n\n TEST %d - FIXED_HUFFMAN test", kat_test_index);
+            btype_in = `FIXED_HUFFMAN;
+
+			$display($time, "Test phrase= 516 x 'a', 7 x 'b', 1 x 'c' and 6 x 'a' "); // 530 characters
+
+			feed_input_fifo({{7'b0,`BFINAL0}, 24'd512});           
+            for (i=0; i<=127; i=i+1) begin                            // BFINAL=1, BTYPE=FIXED_HUFFMAN, LENGTH=512 bytes
+		        //$display($time, "  char_no = %d",i*4);
+      		    feed_input_fifo({"a","a","a","a"});
+			end
+
+			// The character 'b' is the last from the same block
+			//repeat(21) @(posedge clk);                // simulate a delay for this burst   
+			feed_input_fifo({{7'b0,`BFINAL1}, 24'd18});           
+            feed_input_fifo({"a","a","a","a"});                       // BFINAL=1, BTYPE=FIXED_HUFFMAN, LENGTH=18 bytes
+            feed_input_fifo({"b","b","b","b"});
+            feed_input_fifo({"b","b","b","c"});
+            feed_input_fifo({"a","a","a","a"});
+            feed_input_fifo({"a","a"," "," "});
 			
 			
+			@(posedge debug_reg[`GZIP_DONE_POS]); 
+			$display($time, " GZIP core finished processing data");		
+
+			// Read the core output data
+			data_len_exp = 32;
+			//@(negedge empty_out_fifo);			
+			for (i=0;i<(data_len_exp/4);i=i+1) begin      // 32 bytes are expected to be in the output vector
+                read_output_fifo(data_out_rd_32);
+                expected_vect = {expected_data5[4*i], expected_data5[4*i+1], expected_data5[4*i+2], expected_data5[4*i+3]};					
+                if (expected_vect == data_out_rd_32) begin
+                   $display($time, " SUCCESS: read_data = %h, expected_data = %h", data_out_rd_32, expected_vect); 
+			    success_count = success_count + 1;
+			    end 
+			    else begin
+                   $display($time, " ERROR: read_data = %h, expected_data = %h", data_out_rd_32, expected_vect); 
+			       error_count = error_count + 1;
+			    end
+				if (empty_out_fifo && i<((data_len_exp/4)-1)) begin // Make another read only if the FIFO has data and only if it is not the last output double word
+				   @(negedge empty_out_fifo);
+				end 
+			end				
+		`endif	
+
+	        $display("========================================================================================");
+			reset_gzip_core();
+			kat_test_index = kat_test_index + 1;
+			test_count = test_count + 1;
+			
+            $display($time, "\n\n TEST %d - FIXED_HUFFMAN test", kat_test_index);
+            btype_in = `FIXED_HUFFMAN;
+
+			$display($time, "Test phrase= 'xabcdefghijk', 499 x 'a', 'xabcdefghijk', 499 x 'a', 'xabcdefghijk' "); // 1034 characters
+
+			feed_input_fifo({{7'b0,`BFINAL0}, 24'd512}); 
+      		feed_input_fifo({"x","a","b","c"});
+      		feed_input_fifo({"d","e","f","g"});
+      		feed_input_fifo({"h","i","j","k"});			
+            for (i=0; i<124; i=i+1) begin                            
+     			//$display($time, "  char_no = %d",i*4);
+      		    feed_input_fifo({"a","a","a","a"});
+			end
+            feed_input_fifo({"a","a","a","x"});
+			
+			// The character 'b' is the last from the same block
+			repeat(21) @(posedge clk);                // simulate a delay for this burst   
+			feed_input_fifo({{7'b0,`BFINAL0}, 24'd512}); 
+      		feed_input_fifo({"a","b","c","d"});
+      		feed_input_fifo({"e","f","g","h"});
+      		feed_input_fifo({"i","j","k","a"});			
+            for (i=0; i<124; i=i+1) begin                            
+     			//$display($time, "  char_no = %d",i*4);
+      		    feed_input_fifo({"a","a","a","a"});
+			end
+            feed_input_fifo({"a","a","x","a"});
+			
+			feed_input_fifo({{7'b0,`BFINAL1}, 24'd10}); 
+      		feed_input_fifo({"b","c","d","e"});
+      		feed_input_fifo({"f","g","h","i"});
+      		feed_input_fifo({"j","k"," "," "});
+
+			
+			@(posedge debug_reg[`GZIP_DONE_POS]); 
+			$display($time, " GZIP core finished processing data");		
+
+			// Read the core output data
+			data_len_exp = 48;
+			//@(negedge empty_out_fifo);			
+			for (i=0;i<(data_len_exp/4);i=i+1) begin      // 48 bytes are expected to be in the output vector
+                read_output_fifo(data_out_rd_32);
+                expected_vect = {expected_data6[4*i], expected_data6[4*i+1], expected_data6[4*i+2], expected_data6[4*i+3]};					
+                if (expected_vect == data_out_rd_32) begin
+                   $display($time, " SUCCESS: read_data = %h, expected_data = %h", data_out_rd_32, expected_vect); 
+			    success_count = success_count + 1;
+			    end 
+			    else begin
+                   $display($time, " ERROR: read_data = %h, expected_data = %h", data_out_rd_32, expected_vect); 
+			       error_count = error_count + 1;
+			    end
+				if (empty_out_fifo && i<((data_len_exp/4)-1)) begin // Make another read only if the FIFO has data and only if it is not the last output double word
+				   @(negedge empty_out_fifo);
+				end 
+			end
+		
             $display($time, "<<<<<<<<< Known Answer Test END >>>>>>>>");
         end 
 
@@ -594,7 +714,6 @@ module test_gzip_compress();
 		
         $display($time, "************************** GZIP uncompressed test is DONE **************************");		
     end
-
 
 
 	/*always @(*)            /// XXX this is for future tests
