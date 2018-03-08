@@ -4,6 +4,7 @@ lib gzip_v1_00_a crc32 verilog
 lib gzip_v1_00_a slegth verilog
 lib gzip_v1_00_a sliteral verilog
 lib gzip_v1_00_a sdht verilog
+lib gzip_v1_00_a huffman_encoder
 lib gzip_v1_00_a reg_PE verilog
 lib gzip_v1_00_a word_merge64 verilog
 lib gzip_v1_00_a priority_encoder verilog

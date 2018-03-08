@@ -181,7 +181,9 @@ module gzip
    gzip_top
        #(      	
         .DICTIONARY_DEPTH(DICTIONARY_DEPTH),	                 // the size of the GZIP window
-    	.DICTIONARY_DEPTH_LOG(DICTIONARY_DEPTH_LOG)           		
+        .DICTIONARY_DEPTH_LOG(DICTIONARY_DEPTH_LOG),
+        .LOOK_AHEAD_BUFF_DEPTH(LOOK_AHEAD_BUFF_DEPTH),
+        .CNT_WIDTH(CNT_WIDTH)
         )
       gzip_top_i0
        (
