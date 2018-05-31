@@ -83,3 +83,116 @@ ulg updcrc(uch *s,unsigned n)
     crc = c;
     return c ^ 0xffffffffL;       /* (instead of ~c for 64-bit machines) */
 }
+
+
+/* Function used to change the endianess of a 32bit variable
+*/
+uint32_t _bswap32(uint32_t a)
+{
+  a = ((a & 0x000000FF) << 24) |
+      ((a & 0x0000FF00) <<  8) |
+      ((a & 0x00FF0000) >>  8) |
+      ((a & 0xFF000000) >> 24);
+  return a;
+}
+
+
+/* Function unsed to round a number to a the first multiple of the second argument
+*/
+unsigned int _roundTo(unsigned int value, unsigned int roundTo)
+{
+    return (value + (roundTo - 1)) & ~(roundTo - 1);
+}
+
+/* report a zlib or i/o error */
+void zerr(int ret)
+{
+    fputs("zpipe: ", stderr);
+    switch (ret) {
+    case Z_ERRNO:
+        if (ferror(stdin))
+            fputs("error reading stdin\n", stderr);
+        if (ferror(stdout))
+            fputs("error writing stdout\n", stderr);
+        break;
+    case Z_STREAM_ERROR:
+        fputs("invalid compression level\n", stderr);
+        break;
+    case Z_DATA_ERROR:
+        fputs("invalid or incomplete deflate data\n", stderr);
+        break;
+    case Z_MEM_ERROR:
+        fputs("out of memory\n", stderr);
+        break;
+    case Z_VERSION_ERROR:
+        fputs("zlib version mismatch!\n", stderr);
+    }
+}
+
+// Opens the input/output file descriptors
+// Opens the read/write Xillybus 32bit pipes
+// Opens the 32x8 memory interface, checks DEVICE_ID and resets core
+// Opens the read/write Xillybus data pipes
+// Initializes the FPGA core to STORED or FIXED Huffman modes, for levels 1 and 2-9 respectively
+int gzipCoreInit(uint8_t compress_level){
+
+    char data8;  // used to write/read in the 32bit mem array
+
+    fd_xillybus_rd = open("/dev/xillybus_read_32", O_RDONLY);
+
+    if (fd_xillybus_rd < 0)
+    {
+        if (errno == ENODEV)
+          fprintf(stderr, "(Maybe %s a write-only file?)\n", "/dev/xillybus_read_32");
+
+        perror("Failed to open devfile xillybus read32");
+        return(Z_XILLY_PIPE_ERROR);
+    }
+
+
+    fd_xillybus_wr = open("/dev/xillybus_write_32", O_WRONLY);
+
+    if (fd_xillybus_wr < 0)
+    {
+        if (errno == ENODEV)
+          fprintf(stderr, "(Maybe %s a read-only file?)\n", "/dev/xillybus_write_32");
+
+        perror("Failed to open devfile xillybus write32");
+        return(Z_XILLY_PIPE_ERROR);
+    }
+
+
+    fd_mem = open("/dev/xillybus_mem_8", O_RDWR);
+
+    if (fd_mem < 0)
+    {
+        if (errno == ENODEV)
+          fprintf(stderr, "(Maybe %s a read-only file?)\n", "/dev/xillybus_mem_8");
+
+        perror("Failed to open devfile xillybus mem 8");
+        //exit(1);
+        return(Z_MEM_ARRAY_ERROR);
+    }
+
+
+    // Reset fpga core
+    data8 = RESET_EN;
+    write_data_at_address(fd_mem, RESET_ADD, &data8 , SIZE_OF_CHAR);
+    data8 = RESET_DIS;
+    write_data_at_address(fd_mem, RESET_ADD, &data8 , SIZE_OF_CHAR);
+
+    // Check GZIP core version
+    check_mem_array_data(fd_mem, DEVICE_ID, DEV_ID_ADD);
+    close(fd_mem);
+
+    fd_mem = open("/dev/xillybus_mem_8", O_RDWR);
+    //read_data_from_address(fd_mem, 7, (unsigned char *)&dev_id_rd , SIZE_OF_CHAR);
+
+    // Set BTYPE according to the user option
+    write_data_at_address(fd_mem, BTYPE_ADD, &compress_level , SIZE_OF_CHAR);
+    check_mem_array_data(fd_mem, compress_level, BTYPE_ADD);
+    close(fd_mem);
+
+
+    return Z_OK;   
+}

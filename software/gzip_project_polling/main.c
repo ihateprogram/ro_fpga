@@ -112,20 +112,6 @@ printf("end read_thread \n\n" );
 }
 
 
-uint32_t _bswap32(uint32_t a)
-{
-  a = ((a & 0x000000FF) << 24) |
-      ((a & 0x0000FF00) <<  8) |
-      ((a & 0x00FF0000) >>  8) |
-      ((a & 0xFF000000) >> 24);
-  return a;
-}
-
-unsigned int _roundTo(unsigned int value, unsigned int roundTo)
-{
-    return (value + (roundTo - 1)) & ~(roundTo - 1);
-}
-
 void* write_thread(void *arg)  //read from xillybus and send to file
 {
 #ifdef PRINT_DEBUG
@@ -265,20 +251,20 @@ timeval_subtract (struct timeval *result, struct timeval *x, struct timeval *y)
 
 
 
+    //int fd_xillybus_rd;
+    //int fd_xillybus_wr;
 
 int main(int argc, char *argv[]) {
     char *arg;
     char *input_path = NULL;
     char *output_path = NULL;
-    int fd_read, fd_write, fd_mem;
+    //int fd_read, fd_write, fd_mem;
     int    thr_idx;
-    int fd_xillybus_rd;
-    int fd_xillybus_wr;
     unsigned char buf[2][BLOCK_SIZE];
     gzip_header_t  gzip_file_header = { 0x1F, 0x8B, 8, 0, 0x00000000, 0x0, 0x00};
     int err;
     char command;
-    char compress_mode = BTYPE_NO_COMP;
+    char compress_level = BTYPE_NO_COMP;
     thread_args_t thread_args[2];
     unsigned char dev_id_rd;
     unsigned char data_rd;
@@ -301,30 +287,30 @@ int main(int argc, char *argv[]) {
             switch (*arg++) {
             case 'n': 
                 {
-                    compress_mode = BTYPE_NO_COMP;
+                    compress_level = BTYPE_NO_COMP;
                     break;
                 }
             case 'f':  
                 {
-                    compress_mode = BTYPE_FIX_HUFF;
+                    compress_level = BTYPE_FIX_HUFF;
                     break;
                 }
             case 'h':  
                 {
                     help();          
-                    return 0;
+                    return Z_OK;
                 }
             default:
                 {
                     printf("invalid option '%c' (type program for help) \n", *--arg);
-                    return 0;
+                    return Z_OK;
                 }
             }
     }
     if ((input_path == NULL) || (output_path == NULL)) 
         {
             help();
-            return 0;
+            return Z_OK;
         }       
 
     
@@ -341,17 +327,6 @@ int main(int argc, char *argv[]) {
     }
 
 
-    fd_xillybus_rd = open("/dev/xillybus_read_32", O_RDONLY);
-
-    if (fd_xillybus_rd < 0)
-    {
-        if (errno == ENODEV)
-          fprintf(stderr, "(Maybe %s a write-only file?)\n", "/dev/xillybus_read_32");
-
-        perror("Failed to open devfile xillybus read32");
-        exit(1);
-    }
-
     fd_write = open(output_path, O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR  | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH );
 
     if (fd_write < 0)
@@ -363,46 +338,15 @@ int main(int argc, char *argv[]) {
         exit(1);
     }
 
-    fd_xillybus_wr = open("/dev/xillybus_write_32", O_WRONLY);
-
-    if (fd_xillybus_wr < 0)
-    {
-        if (errno == ENODEV)
-          fprintf(stderr, "(Maybe %s a read-only file?)\n", "/dev/xillybus_write_32");
-
-        perror("Failed to open devfile xillybus write32");
-        exit(1);
-    }    
     
-    fd_mem = open("/dev/xillybus_mem_8", O_RDWR);
+    gzipCoreInit(compress_level);
 
-    if (fd_mem < 0)
-    {
-        if (errno == ENODEV)
-          fprintf(stderr, "(Maybe %s a read-only file?)\n", "/dev/xillybus_mem_8");
-
-        perror("Failed to open devfile xillybus mem 8");
-        exit(1);
-    }
-    
-
-    // Reset fpga core
-    command = RESET_EN;
-    write_data_at_address(fd_mem, RESET_ADD, &command , SIZE_OF_CHAR);
-    //printf("RESET0\n");  //OPL   
-    command = RESET_DIS;
-    write_data_at_address(fd_mem, RESET_ADD, &command , SIZE_OF_CHAR);   
-    //printf(" RESET1 \n"); //OPL
-
-    check_mem_array_data(fd_mem, DEVICE_ID, DEV_ID_ADD);
-
-    close(fd_mem); // this is necessary to give access to the system call
-    fd_mem = open("/dev/xillybus_mem_8", O_RDWR);
+    /*fd_mem = open("/dev/xillybus_mem_8", O_RDWR);
     //read_data_from_address(fd_mem, 7, (unsigned char *)&dev_id_rd , SIZE_OF_CHAR);
 
     // Set BTYPE according to the user option
-    write_data_at_address(fd_mem, BTYPE_ADD, &compress_mode , SIZE_OF_CHAR);      
-    check_mem_array_data(fd_mem, compress_mode, BTYPE_ADD);
+    write_data_at_address(fd_mem, BTYPE_ADD, &compress_level , SIZE_OF_CHAR);      
+    check_mem_array_data(fd_mem, compress_level, BTYPE_ADD); */
 
    
 #ifdef PRINT_DEBUG    
@@ -412,16 +356,6 @@ int main(int argc, char *argv[]) {
     fd_mem = open("/dev/xillybus_mem_8", O_RDWR);
 #endif
 
-    close(fd_mem); // this is necessary to give access to the system call
-    /*fd_mem = open("/dev/xillybus_mem_8", O_RDWR);
-    if (fd_mem < 0)
-    {
-        if (errno == ENODEV)
-          fprintf(stderr, "(Maybe %s a read-only file?)\n", "/dev/xillybus_write_8");
-
-        perror("Failed to open devfile xillybus write");
-        exit(1);
-    }*/
     /* write gzip_file_header */
     write(fd_write, &gzip_file_header, GZIP_HEADER_MANDATORY);
     //to be completed with flags
@@ -497,6 +431,6 @@ int main(int argc, char *argv[]) {
 #ifdef PRINT_DEBUG
     printf("exit main() \n");
 #endif
-    exit(0);
-    return 1;
+    //exit(0);
+    return Z_STREAM_END;
 }

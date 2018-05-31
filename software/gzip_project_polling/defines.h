@@ -1,6 +1,14 @@
 #ifndef DEFINES_H
 #define DEFINES_H
 
+#if defined(MSDOS) || defined(OS2) || defined(WIN32) || defined(__CYGWIN__)
+#  include <fcntl.h>
+#  include <io.h>
+#  define SET_BINARY_MODE(file) setmode(fileno(file), O_BINARY)
+#else
+#  define SET_BINARY_MODE(file)
+#endif
+
 #include <pthread.h>
 #include <semaphore.h>
 #include <stdio.h>
@@ -26,7 +34,7 @@
 #define BLOCK_SIZE 512
 
 //versions
-#define SW_VERSION 1.1
+#define SW_VERSION 1.2
 //addresses
 #define RESET_ADD		0
 #define BTYPE_ADD		1
@@ -40,14 +48,38 @@
 //commands & masks
 #define RESET_EN		0x00
 #define RESET_DIS		0x01
-#define BTYPE_NO_COMP 	0x00
-#define BTYPE_FIX_HUFF 	0x01
-#define BTYPE_DIN_HUFF 	0x02
+#define BTYPE_NO_COMP 	        0x00
+#define BTYPE_FIX_HUFF  	0x01
+#define BTYPE_DIN_HUFF  	0x02
 #define GZIP_DONE		0x04
 #define BTYPE_ERROR		0x02
 #define BSIZE_ERROR		0x01
 #define DEVICE_ID               0xC7
 #define LAST_BLOCK 		0x01000000
+
+
+/* Return codes for the compression/decompression functions. Negative values
+ * are errors, positive values are used for special but normal events.
+ */
+#define Z_OK            0
+#define Z_STREAM_END    1
+#define Z_NEED_DICT     2
+#define Z_ERRNO        (-1)
+#define Z_STREAM_ERROR (-2)
+#define Z_DATA_ERROR   (-3)
+#define Z_MEM_ERROR    (-4)
+#define Z_BUF_ERROR    (-5)
+#define Z_VERSION_ERROR (-6)
+#define Z_MEM_ARRAY_ERROR (-7)
+#define Z_XILLY_PIPE_ERROR (-8)
+
+// Filt descriptors
+    int fd_xillybus_rd;
+    int fd_xillybus_wr;
+    int fd_read, fd_write, fd_mem;
+    //char compress_level = BTYPE_NO_COMP;
+
+
 
 typedef unsigned char  uch;
 typedef unsigned short ush;
@@ -130,5 +162,13 @@ typedef struct {
  extern unsigned char read_mem_array_data(int fdr, unsigned char address); // OPL
 
  extern ulg updcrc(uch *s,unsigned n);
+
+ extern uint32_t _bswap32(uint32_t a);
+ 
+ extern unsigned int _roundTo(unsigned int value, unsigned int roundTo);
+
+ extern int gzipCoreInit(uint8_t compress_level);
+
+
 
 #endif //DEFINES_H
