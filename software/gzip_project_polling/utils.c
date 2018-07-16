@@ -1,4 +1,5 @@
 #include "defines.h"
+#include "deflate.h"
 
 /* ========================================================================
  * Table of CRC-32's of all single-byte values (made by makecrc.c)
@@ -129,6 +130,20 @@ void zerr(int ret)
     }
 }
 
+
+int gzipCoreReset(int fd_mem){
+    
+    char data8;  // used to write/read in the 32bit mem array
+    
+    // Reset fpga core
+    data8 = RESET_EN;
+    write_data_at_address(fd_mem, RESET_ADD, &data8 , SIZE_OF_CHAR);
+    data8 = RESET_DIS;
+    write_data_at_address(fd_mem, RESET_ADD, &data8 , SIZE_OF_CHAR);
+  
+    return Z_OK;   
+}
+
 // Opens the input/output file descriptors
 // Opens the read/write Xillybus 32bit pipes
 // Opens the 32x8 memory interface, checks DEVICE_ID and resets core
@@ -176,10 +191,12 @@ int gzipCoreInit(uint8_t compress_level){
 
 
     // Reset fpga core
-    data8 = RESET_EN;
+   /* data8 = RESET_EN;
     write_data_at_address(fd_mem, RESET_ADD, &data8 , SIZE_OF_CHAR);
     data8 = RESET_DIS;
-    write_data_at_address(fd_mem, RESET_ADD, &data8 , SIZE_OF_CHAR);
+    write_data_at_address(fd_mem, RESET_ADD, &data8 , SIZE_OF_CHAR); */
+    gzipCoreReset(fd_mem);
+
 
     // Check GZIP core version
     check_mem_array_data(fd_mem, DEVICE_ID, DEV_ID_ADD);
@@ -196,3 +213,111 @@ int gzipCoreInit(uint8_t compress_level){
 
     return Z_OK;   
 }
+
+
+int ZEXPORT deflateCoreInit2_(strm, level, method, windowBits, memLevel, strategy,
+                  version, stream_size)
+    z_streamp strm;
+    int  level;
+    int  method;
+    int  windowBits;
+    int  memLevel;
+    int  strategy;
+    const char *version;
+    int stream_size;
+{
+    deflate_state *s;
+    int wrap = 1;
+    static const char my_version[] = ZLIB_VERSION;
+
+    ushf *overlay;
+
+    if (version == Z_NULL || version[0] != my_version[0] ||
+        stream_size != sizeof(z_stream)) {
+        return Z_VERSION_ERROR;
+    }
+    if (strm == Z_NULL) return Z_STREAM_ERROR;
+
+    strm->msg = Z_NULL;
+    if (strm->zalloc == (alloc_func)0) {
+#ifdef Z_SOLO
+        return Z_STREAM_ERROR;
+#else
+        strm->zalloc = zcalloc;
+        strm->opaque = (voidpf)0;
+#endif
+    }
+    if (strm->zfree == (free_func)0)
+#ifdef Z_SOLO
+        return Z_STREAM_ERROR;
+#else
+        strm->zfree = zcfree;
+#endif
+
+#ifdef FASTEST
+    if (level != 0) level = 1;
+#else
+    if (level == Z_DEFAULT_COMPRESSION) level = 6;
+#endif
+
+    if (windowBits < 0) { 
+        wrap = 0;
+        windowBits = -windowBits;
+    }
+#ifdef GZIP
+    else if (windowBits > 15) {
+        wrap = 2;       
+        windowBits -= 16;
+    }
+#endif
+    if (memLevel < 1 || memLevel > MAX_MEM_LEVEL || method != Z_DEFLATED ||
+        windowBits < 8 || windowBits > 15 || level < 0 || level > 9 ||
+        strategy < 0 || strategy > Z_FIXED || (windowBits == 8 && wrap != 1)) {
+        return Z_STREAM_ERROR;
+    }
+    if (windowBits == 8) windowBits = 9; 
+    s = (deflate_state *) ZALLOC(strm, 1, sizeof(deflate_state));
+    if (s == Z_NULL) return Z_MEM_ERROR;
+    strm->state = (struct internal_state FAR *)s;
+    s->strm = strm;
+    s->status = INIT_STATE;    
+
+    s->wrap = wrap;
+    s->gzhead = Z_NULL;
+    s->w_bits = (uInt)windowBits;
+    s->w_size = 1 << s->w_bits;
+    s->w_mask = s->w_size - 1;
+
+    s->hash_bits = (uInt)memLevel + 7;
+    s->hash_size = 1 << s->hash_bits;
+    s->hash_mask = s->hash_size - 1;
+    s->hash_shift =  ((s->hash_bits+MIN_MATCH-1)/MIN_MATCH);
+
+    s->window = (Bytef *) ZALLOC(strm, s->w_size, 2*sizeof(Byte));
+    s->prev   = (Posf *)  ZALLOC(strm, s->w_size, sizeof(Pos));
+    s->head   = (Posf *)  ZALLOC(strm, s->hash_size, sizeof(Pos));
+
+    s->high_water = 0;      //// nothing written to s->window yet 
+
+    s->lit_bufsize = 1 << (memLevel + 6); 
+
+    overlay = (ushf *) ZALLOC(strm, s->lit_bufsize, sizeof(ush)+2);
+    s->pending_buf = (uchf *) overlay;
+    s->pending_buf_size = (ulg)s->lit_bufsize * (sizeof(ush)+2L);
+
+    if (s->window == Z_NULL || s->prev == Z_NULL || s->head == Z_NULL ||
+        s->pending_buf == Z_NULL) {
+        s->status = FINISH_STATE;
+        strm->msg = ERR_MSG(Z_MEM_ERROR);
+        deflateEnd (strm);
+        return Z_MEM_ERROR;
+    }
+    s->d_buf = overlay + s->lit_bufsize/sizeof(ush);
+    s->l_buf = s->pending_buf + (1+sizeof(ush))*s->lit_bufsize;
+
+    s->level = level;
+    s->strategy = strategy;
+    s->method = (Byte)method;
+
+    return deflateReset(strm);
+} 

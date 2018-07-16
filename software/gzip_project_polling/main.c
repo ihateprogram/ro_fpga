@@ -1,4 +1,14 @@
+#if defined(MSDOS) || defined(OS2) || defined(WIN32) || defined(__CYGWIN__)
+#  include <fcntl.h>
+#  include <io.h>
+#  define SET_BINARY_MODE(file) setmode(fileno(file), O_BINARY)
+#else
+#  define SET_BINARY_MODE(file)
+#endif
+
 #include "defines.h"
+//#include "deflate.h"
+#include "zlib.h"
 
 pthread_t tid[2];
 
@@ -56,7 +66,7 @@ void* read_thread(void *arg)  //read from file and send to xillybus
     
     while ((total_read_len < (int)read_file_status.st_size))
     {
-        read_len = read(thread_args.fd_read, (unsigned char *)thread_args.buff, thread_args.buffer_size);
+        read_len = read(thread_args.fd_read, (unsigned char *)thread_args.buff, BLOCK_SIZE);
         total_read_len += read_len;
         frame_command = read_len;
         if ((read_len < 0) && (errno == EINTR))
@@ -67,7 +77,7 @@ void* read_thread(void *arg)  //read from file and send to xillybus
           exit(1);
         }
 
-        if ((read_len < thread_args.buffer_size) || (total_read_len == (int)read_file_status.st_size)) 
+        if ((read_len < BLOCK_SIZE) || (total_read_len == (int)read_file_status.st_size)) 
         {
 #ifdef PRINT_DEBUG
 printf("Reached read_thread EOF len= %d   cond %d \n\n", total_read_len, total_read_len < (int)read_file_status.st_size );
@@ -76,8 +86,10 @@ printf("Reached read_thread EOF len= %d   cond %d \n\n", total_read_len, total_r
         }
         //invert frame command;
         tmp_cmd = frame_command;
-        for(i=0; i<SIZE_OF_INT; i++)
+        for (i = 0; i < SIZE_OF_INT; i++) {
             ((unsigned char*)(&frame_command))[i] = ((unsigned char*)(&tmp_cmd))[SIZE_OF_INT - i - 1];
+		}
+		
 #ifdef PRINT_DEBUG
         printf("command: %x \n", (unsigned char *)(frame_command));
         printf("text: %s \n", (unsigned char *)thread_args.buff);
@@ -129,7 +141,12 @@ void* write_thread(void *arg)  //read from xillybus and send to file
     uint32_t read_pipe_byte_counter = 0;
     uint32_t output_size = 0;
     int wr_len_sum = 0;
+    int out_size_mod_512 = 0;
+    int out_size_rem_512 = 0;
+    int length_diff = 0;
 
+    unsigned char read_out_size_once = 0;
+ 
     timeout.tv_sec = 1;
     timeout.tv_usec = 2000; // 50 msec timeout 
     
@@ -148,8 +165,8 @@ void* write_thread(void *arg)  //read from xillybus and send to file
         else 
             if(rv == 0) // exit the program if a timeout occured
             {   
-#ifdef PRINT_DEBUG
     printf("\n         timeout \n"); // a timeout occured 
+#ifdef PRINT_DEBUG
     
     close(thread_args.fd_mem);
     
@@ -173,10 +190,10 @@ void* write_thread(void *arg)  //read from xillybus and send to file
 #ifdef MEASURE_TIME
                 gettimeofday(&tv_stop, NULL);
 #endif
-          read_data(thread_args.fd_read, thread_args.buff, &wr_len);
+          /*read_data(thread_args.fd_read, thread_args.buff, &wr_len);
           write(thread_args.fd_write, (unsigned char*)thread_args.buff, wr_len);
           read_pipe_byte_counter = read_pipe_byte_counter + wr_len;
-         // printf("wr_len = %d, read_pipe_byte_counter = %ld\n", wr_len, read_pipe_byte_counter);
+          printf("wr_len = %d, read_pipe_byte_counter = %ld\n", wr_len, read_pipe_byte_counter); */
           
           //Update the value of GZIP_DONE
           close(thread_args.fd_mem);
@@ -186,29 +203,56 @@ void* write_thread(void *arg)  //read from xillybus and send to file
           
           // Continue to read data until all DMA data is written in the output file
           if(info_reg & GZIP_DONE) {
-            // printf("WAIT TO READ ALL DATA \n");
-             close(thread_args.fd_mem);
-             thread_args.fd_mem = open("/dev/xillybus_mem_8", O_RDWR);
+             if (read_out_size_once == 0){ // this code should execute only onece because out_size is not changed
+                                           // after GZIP_DONE = 1
+                //printf("AICI \n");
+                close(thread_args.fd_mem);
+                thread_args.fd_mem = open("/dev/xillybus_mem_8", O_RDWR);
              
-             read_data_from_address(thread_args.fd_mem, OUT_SIZE_ADD, (unsigned char *)&tmp , SIZE_OF_INT);
-             output_size = _bswap32((uint32_t)tmp);
-             output_size = output_size >> 3; // conver to Bytes
-             output_size = _roundTo(output_size, 8); // round to the nearest multiple of 8 (64 bits output data chunks)
-             //printf("OUT_SIZE_ADD = %ld \n", output_size);
-             if(output_size == read_pipe_byte_counter) {
-                if (info_reg & BSIZE_ERROR){
-                   printf("ERROR: BSIZE_ERROR = 1\n");
-                }             
-                if (info_reg & BTYPE_ERROR){
-                   printf("ERROR: BTYPE_ERROR = 1\n");
-                }             
+                read_data_from_address(thread_args.fd_mem, OUT_SIZE_ADD, (unsigned char *)&tmp , SIZE_OF_INT);
+                output_size = _bswap32((uint32_t)tmp);
+                output_size = output_size >> 3; // conver to Bytes
+                //output_size = _roundTo(output_size, 8); // round to the nearest multiple of 8 (64 bits output data chunks)
+                //printf("OUT_SIZE_ADD = %ld \n", output_size);
+                out_size_mod_512 = output_size / BLOCK_SIZE; // quotient
+                out_size_rem_512 = output_size % BLOCK_SIZE; // remainder
+                //printf("out_size_mod_512 = %d \n", out_size_mod_512);
+                //printf("out_size_rem_512 = %d \n", out_size_rem_512);
+                read_out_size_once = 1; // disable this code section
+             }
+
+             // read data from the output pipe until there are no more bytes 
+             if(output_size - read_pipe_byte_counter <= 512) { // the last block reads less than 512 bytes
+                length_diff = output_size - read_pipe_byte_counter;
+                //printf("length_diff = %d \n", length_diff);
+                
+                // read the exact difference of bytes until output_size is completed
+                read(thread_args.fd_read, thread_args.buff , length_diff);
+                write(thread_args.fd_write, (unsigned char*)thread_args.buff, length_diff);
+                read_pipe_byte_counter = read_pipe_byte_counter + length_diff;
+                //printf("DUDU wr_len = %d, read_pipe_byte_counter = %ld\n", length_diff, read_pipe_byte_counter);
+
+                if (info_reg & BSIZE_ERROR){ printf("ERROR: BSIZE_ERROR = 1\n"); }             
+                if (info_reg & BTYPE_ERROR){ printf("ERROR: BTYPE_ERROR = 1\n"); }
                 //printf("EXIT \n");
                 break;
+             } else { // all blocks read 512 bytes of data
+                read_data(thread_args.fd_read, thread_args.buff, &wr_len);
+                write(thread_args.fd_write, (unsigned char*)thread_args.buff, wr_len);
+                read_pipe_byte_counter = read_pipe_byte_counter + wr_len;
+                //printf("DADA wr_len = %d, read_pipe_byte_counter = %ld\n", wr_len, read_pipe_byte_counter);
              }
+
+
+          } else {
+              read_data(thread_args.fd_read, thread_args.buff, &wr_len);
+              write(thread_args.fd_write, (unsigned char*)thread_args.buff, wr_len);
+              read_pipe_byte_counter = read_pipe_byte_counter + wr_len;
+              //printf("ZAZA wr_len = %d, read_pipe_byte_counter = %ld\n", wr_len, read_pipe_byte_counter);
           }
  
 
-           }
+      }
   
 
   } // end of the while loop
@@ -250,9 +294,18 @@ timeval_subtract (struct timeval *result, struct timeval *x, struct timeval *y)
 }
 
 
+// This function is not reseting strm, it resets the gzip core
+/*int ZEXPORT deflateCoreReset_ (strm)
+    z_streamp strm;
+{
+    int ret;
 
-    //int fd_xillybus_rd;
-    //int fd_xillybus_wr;
+    ret = deflateResetKeep(strm);
+    if (ret == Z_OK)
+        lm_init(strm->state);
+    return ret;
+} */
+
 
 int main(int argc, char *argv[]) {
     char *arg;
@@ -269,6 +322,17 @@ int main(int argc, char *argv[]) {
     unsigned char dev_id_rd;
     unsigned char data_rd;
     long long milliseconds_start, milliseconds_stop;
+
+
+    int ret, flush;
+    unsigned have;
+    int level;
+    z_stream strm; // zlib method
+
+    /* avoid end-of-line conversions */
+    SET_BINARY_MODE(stdin);
+    SET_BINARY_MODE(stdout);
+
 
     //analyze command line
     while (--argc) {
@@ -348,6 +412,19 @@ int main(int argc, char *argv[]) {
     write_data_at_address(fd_mem, BTYPE_ADD, &compress_level , SIZE_OF_CHAR);      
     check_mem_array_data(fd_mem, compress_level, BTYPE_ADD); */
 
+    // Initialize the Deflate strem
+    /* allocate deflate state */
+    strm.zalloc = Z_NULL;
+    strm.zfree = Z_NULL;
+    strm.opaque = Z_NULL;
+    level = (compress_level == BTYPE_FIX_HUFF) ? 6 : 0;
+    ret = deflateInit(&strm, level);
+    if (ret != Z_OK)
+        return ret; 
+
+
+
+
    
 #ifdef PRINT_DEBUG    
     printf("ZAZA \n");
@@ -416,6 +493,11 @@ int main(int argc, char *argv[]) {
     // Reset fpga core
     command = RESET_EN;
     write_data_at_address(fd_mem, RESET_ADD, &command , SIZE_OF_CHAR);
+
+    /* clean up and return */
+    (void)deflateEnd(&strm);
+    return Z_OK;
+
 #ifdef PRINT_DEBUG
     printf(" all threads finished \n");
 #endif        

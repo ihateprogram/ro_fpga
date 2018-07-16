@@ -20,6 +20,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <deflate.h>
 
 /*********************************************************************
  *                                                                   *
@@ -169,6 +170,12 @@ typedef struct {
 
  extern int gzipCoreInit(uint8_t compress_level);
 
+ extern int gzipCoreReset(int fd_mem);
+
+ extern int deflateCoreInit2_ (z_streamp strm, int  level, int  method,
+                                  int windowBits, int memLevel,
+                                  int strategy, const char *version,
+                                  int stream_size);
 
 
 #endif //DEFINES_H
