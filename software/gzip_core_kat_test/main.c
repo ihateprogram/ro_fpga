@@ -1,3 +1,12 @@
+
+#if defined(MSDOS) || defined(OS2) || defined(WIN32) || defined(__CYGWIN__)
+#  include <fcntl.h>
+#  include <io.h>
+#  define SET_BINARY_MODE(file) setmode(fileno(file), O_BINARY)
+#else
+#  define SET_BINARY_MODE(file)
+#endif
+
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
@@ -7,10 +16,6 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
-//#include "xilly_debug.h"
-
-//#include "crypto_ovi.h"
-//#include "test_vectors.h"
 #include "fpga_functions.h"
 #include "global_defines.h"
 
@@ -86,8 +91,9 @@ void check_mem_array_data(uint8_t  expected_val, uint8_t address)
 
    if (fd < 0) 
    {
-      if (errno == ENODEV)
-         fprintf(stderr, "(Maybe %d a write-only file?)\n", fd);
+      if (errno == ENODEV) {
+         fprintf(stderr, "(Maybe %d a write-only file?)\n", fd); 
+         }
          perror("Failed to open devfile");
          exit(1);
    }
@@ -213,8 +219,9 @@ uint8_t* read_data_from_fpga(int fd, uint32_t rd_len)
 
    if (fd < 0) 
    {
-      if (errno == ENODEV)
+      if (errno == ENODEV){
          fprintf(stderr, "(Maybe %d a write-only file?)\n", fd);
+         }
          perror("Failed to open devfile");
          exit(1);
    }
@@ -248,7 +255,7 @@ void display_test_result ()
       printf("\n====================== TEST FAILED ==========================\n");
 }
 
-//#define skip_me
+#define skip_me
 
 int main() 
 {
@@ -256,6 +263,8 @@ int main()
    uint8_t *data_received;
    int i;
    int fdr, fdw;
+   int test_number = 0;  // used to show the current number of a test
+
 
    printf("\n**************************************************************************\n");
    printf("\t\tGZIP FPGA Known Answer Test");  
@@ -263,11 +272,12 @@ int main()
    printf("\n**************************************************************************\n");
 
    // Toggle the RESET and enable the core
-   printf("\n\nCheck DEVICE_ID");   
+   printf("\n\n TEST %d Check DEVICE_ID", test_number);   
    check_mem_array_data(DEV_ID, DEBUG_REV_REG);
        
-
-   printf("\n\n******************** TEST 1 - BSIZE_ERR for NO_COMPRESSION  ********************\n");
+#ifdef skip_me   
+   test_number = test_number + 1;
+   printf("\n\n******************** TEST %d - BSIZE_ERR for NO_COMPRESSION  ********************\n", test_number);
    printf("\tBLOCK_SIZE = 65537\n");
    write_mem_array_data(BTYPE_NO_COMPRESSION, BTYPE_REG);
    write_mem_array_data(RESET_EN, RESET_REG);
@@ -281,7 +291,8 @@ int main()
    check_mem_array_data(BSIZE_ERR, DEBUG_REG1);
    
 
-   printf("\n\n******************** TEST 2 - BSIZE_ERR for FIXED_HUFFMAN  ********************\n");
+   test_number = test_number + 1;
+   printf("\n\n******************** TEST %d - BSIZE_ERR for FIXED_HUFFMAN  ********************\n", test_number);
    printf("\tBLOCK_SIZE = 32769\n");
    write_mem_array_data(BTYPE_FIXED_HUFFMAN, BTYPE_REG);
    write_mem_array_data(RESET_EN, RESET_REG);
@@ -292,8 +303,12 @@ int main()
    send_data_to_fpga(fdw, test_in, 32769, BFINAL1, IGNORE_PAYLOAD);
    close(fdw);                                   
  
+   check_mem_array_data(BSIZE_ERR, DEBUG_REG1);
 
-   printf("\n\n******************** TEST 3 - BTYPE_ERR  ********************\n");
+
+   test_number = test_number + 1;
+   printf("\n\n******************** TEST %d - BTYPE_ERR  ********************\n", test_number);
+
    printf("\tBTYPE = DYNAMIC_HUFFMAN\n");
    write_mem_array_data(RESET_EN, RESET_REG);
    write_mem_array_data(RESET_DIS, RESET_REG);
@@ -308,11 +323,14 @@ int main()
    close(fdw);                                   
  
    check_mem_array_data(BTYPE_ERR, DEBUG_REG1); 
+#endif skip_me
 
 
-   printf("\n\n******************** TEST 5 - CRC Integrity  ********************\n");
+#ifdef skip_me   
+   test_number = test_number + 1;
+   printf("\n\n******************** TEST %d - CRC Integrity  ********************\n", test_number);
    printf("Check CRC integrity \n");
-   uint8_t expected_data0[] = {0x1 , 0x4, 0x0, 0xfb, 0xff, 0x30, 0x30, 0x30, 0x31, 0xe4, 0xf4, 0x9c, 0x7b, 0x4 , 0x0 , 0x0};
+   uint8_t expected_data0[] = {0x1 , 0x4, 0x0, 0xfb, 0xff, 0x30, 0x30, 0x30, 0x31, 0xe4, 0xf4, 0x9c, 0x7b, 0x4 , 0x0 , 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
 
  
    //uint8_t expected_data1[] = {0x1, 0x0};    
@@ -328,9 +346,9 @@ int main()
    send_data_to_fpga(fdw, "0001", 0, BFINAL1, PROCESS_PAYLOAD);
    //printf("\n******** lungimea %d\n", strlen((char *)data_received));
   // printf("\n Concatenate = %s", data_received);
-   data_received = read_data_from_fpga(fdr, 16);
+   data_received = read_data_from_fpga(fdr, 24);
      
-   check_compressed_data(data_received, expected_data0, 16);
+   check_compressed_data(data_received, expected_data0, 24);
    
    check_mem_array_data(RESET_DIS, RESET_REG);
 
@@ -351,13 +369,14 @@ int main()
    close(fdw);                                   
    close(fdr);                                       // close the file descriptors
    check_mem_array_data(GZIP_DONE, DEBUG_REG1);        // check for the GZIP_DONE bit to be set
+#endif skip_me
 
 
 
-
-   printf("\n\n******************** TEST 4 - NO COMPRESSION  ********************\n");
+   test_number = test_number + 1;
+   printf("\n\n******************** TEST %d - NO COMPRESSION  ********************\n", test_number);
    printf("BTYPE = NO_COMPRESSION  \n");
-   uint8_t expected_data1[] = { 0x1 , 0x20, 0x0 , 0xdf, 0xff, 0x54, 0x65, 0x73, 0x74, 0x20, 0x47, 0x5a, 0x49, 0x50, 0x20, 0x63, 0x6f, 0x6d, 0x70, 0x72, 0x65, 0x73, 0x73, 0x69, 0x6f, 0x6e, 0x20, 0x63, 0x6f, 0x72, 0x65, 0x20, 0x54, 0x65, 0x73, 0x74, 0x2e, 0xe8, 0xb2, 0xab, 0x5a, 0x20, 0x0 , 0x0};
+   uint8_t expected_data1[] = { 0x1 , 0x20, 0x0 , 0xdf, 0xff, 0x54, 0x65, 0x73, 0x74, 0x20, 0x47, 0x5a, 0x49, 0x50, 0x20, 0x63, 0x6f, 0x6d, 0x70, 0x72, 0x65, 0x73, 0x73, 0x69, 0x6f, 0x6e, 0x20, 0x63, 0x6f, 0x72, 0x65, 0x20, 0x54, 0x65, 0x73, 0x74, 0x2e, 0xe8, 0xb2, 0xab, 0x5a, 0x20, 0x0 , 0x0, 0x0, 0x0, 0x0, 0x0};
 
    //uint8_t expected_data1[] = {0x1, 0x0};    
    write_mem_array_data(BTYPE_NO_COMPRESSION, BTYPE_REG);
@@ -372,21 +391,23 @@ int main()
    send_data_to_fpga(fdw, "Test GZIP compression core Test.", 0, BFINAL1, PROCESS_PAYLOAD);
    //printf("\n******** lungimea %d\n", strlen((char *)data_received));
   // printf("\n Concatenate = %s", data_received);
-   data_received = read_data_from_fpga(fdr, 44);
+   data_received = read_data_from_fpga(fdr, 48);
      
-   check_compressed_data(data_received, expected_data1, 44);
+   check_compressed_data(data_received, expected_data1, 48);
    
    free(data_received); 
 
    close(fdw);                                   
    close(fdr);                                       // close the file descriptors
    check_mem_array_data(GZIP_DONE, DEBUG_REG1);        // check for the GZIP_DONE bit to be set
-    
 
 
-   printf("\n\n******************** TEST 5 - STATIC HUFFMAN COMPRESSION  ********************\n");
+
+#ifdef skip_me   
+   test_number = test_number + 1;
+   printf("\n\n******************** TEST %d - STATIC HUFFMAN COMPRESSION  ********************\n", test_number);
    printf("BTYPE = BTYPE_FIXED_HUFFMAN \n");
-   uint8_t expected_data2[] = { 0xb , 0x49, 0x2d, 0x2e, 0x51, 0x70, 0x8f, 0xf2, 0xc , 0x50, 0x48, 0xce, 0xcf, 0x2d, 0x28, 0x4a, 0x2d, 0x2e, 0xce, 0xcc, 0xcf, 0x3 , 0xb2, 0x8b, 0x52, 0x15, 0xe0, 0x52, 0x0 , 0x46, 0x91, 0x10, 0xa0, 0x24, 0x0 , 0x0 };
+   uint8_t expected_data2[] = { 0xb , 0x49, 0x2d, 0x2e, 0x51, 0x70, 0x8f, 0xf2, 0xc , 0x50, 0x48, 0xce, 0xcf, 0x2d, 0x28, 0x4a, 0x2d, 0x2e, 0xce, 0xcc, 0xcf, 0x3 , 0xb2, 0x8b, 0x52, 0x15, 0x42, 0x60, 0x52, 0x0 , 0x46, 0x91, 0x10, 0xa0, 0x24, 0x0 , 0x0 , 0x0, 0x0, 0x0, 0x0 };
 
    write_mem_array_data(BTYPE_FIXED_HUFFMAN, BTYPE_REG);
    check_mem_array_data(BTYPE_FIXED_HUFFMAN, BTYPE_REG);
@@ -399,19 +420,187 @@ int main()
    fdr = open("/dev/xillybus_read_32", O_RDONLY);    // open the file descriptors
    send_data_to_fpga(fdw, "Test GZIP compression core Test GZIP", 0, BFINAL1, PROCESS_PAYLOAD);
    //printf("\n******** lungimea %d\n", strlen((char *)data_received));
-  // printf("\n Concatenate = %s", data_received);
-   data_received = read_data_from_fpga(fdr, 36);
+   data_received = read_data_from_fpga(fdr, 40);
      
-   check_compressed_data(data_received, expected_data2, 36);
+   // printf("\n Concatenate = %s", data_received);
+   check_compressed_data(data_received, expected_data2, 36); // expected is identical with GZIP utilitary
    
    free(data_received); 
 
    close(fdw);                                   
    close(fdr);                                       // close the file descriptors
-#ifdef skip_me   
-#endif
+#endif skip_me
 
+
+
+#ifdef skip_me   
+   test_number = test_number + 1;
+   printf("\n\n******************** TEST %d - Mulple blocks(2)with STORED MODE  ********************\n", test_number);
+   printf("BTYPE = NO_COMPRESSION, 512 x '1' and one '2' \n");
+   uint8_t expected_data3[] = {0x0, 0x0, 0x02, 0xFF , 0xFD, 0x31,
+0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31,
+0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31,
+0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31,
+0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31,
+0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31,
+0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31,
+0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31,
+0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31,
+0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31,
+0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31,
+0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31,
+0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31,
+0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31,
+0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31,
+0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31,
+0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31,
+0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31,
+0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31,
+0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31,
+0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31,
+0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31,
+0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31,
+0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31,
+0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31,
+0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31,
+0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31,
+0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31,
+0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31,
+0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31,
+0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31,
+0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31,
+0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x31, 0x01,
+0x01, 0x00, 0xFE, 0xFF, 0x32, 0x4A, 0x2A, 0x66, 0xC2, 0x01, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00,
+0x00, 0x00 };
+
+   write_mem_array_data(BTYPE_NO_COMPRESSION, BTYPE_REG);
+   check_mem_array_data(BTYPE_NO_COMPRESSION, BTYPE_REG);
+
+   write_mem_array_data(RESET_EN, RESET_REG);
+   write_mem_array_data(RESET_DIS, RESET_REG);
+   check_mem_array_data(RESET_DIS, RESET_REG);
+
+   fdw = open("/dev/xillybus_write_32",O_WRONLY);
+   fdr = open("/dev/xillybus_read_32", O_RDONLY);    // open the file descriptors
+   send_data_to_fpga(fdw, "11111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111", 0, BFINAL0, PROCESS_PAYLOAD);
+   send_data_to_fpga(fdw, "2", 0, BFINAL1, PROCESS_PAYLOAD);
+
+   data_received = read_data_from_fpga(fdr, 536);
+
+   // printf("\n Concatenate = %s", data_received);
+   check_compressed_data(data_received, expected_data3, 36); // expected is identical with GZIP utilitary
+
+   free(data_received);
+
+   close(fdw);
+   close(fdr);                                       // close the file descriptors
+#endif skip_me
+
+
+
+#ifdef skip_me
+   test_number = test_number + 1;
+   printf("\n\n******************** TEST %d - STATIC HUFFMAN COMPRESSION  ********************\n", test_number);
+   printf("BTYPE = BTYPE_FIXED_HUFFMAN \n");
+   printf("DATA_IN = 511 x 'a' and 1 x 'b' \n");
+   uint8_t expected_data4[] = {
+   0x4b, 0x4c, 0x1c, 0xf1, 0x20, 0x71, 0x04, 0x07, 0x41, 0x12, 0x00, 0xeb, 0x21, 0x58, 0x60, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+
+
+   write_mem_array_data(BTYPE_FIXED_HUFFMAN, BTYPE_REG);
+   check_mem_array_data(BTYPE_FIXED_HUFFMAN, BTYPE_REG);
+
+   write_mem_array_data(RESET_EN, RESET_REG);
+   write_mem_array_data(RESET_DIS, RESET_REG);
+   check_mem_array_data(RESET_DIS, RESET_REG);
+
+   fdw = open("/dev/xillybus_write_32",O_WRONLY);
+   fdr = open("/dev/xillybus_read_32", O_RDONLY);    // open the file descriptors
+   send_data_to_fpga(fdw, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaab", 0, BFINAL1, PROCESS_PAYLOAD);
+   //printf("\n******** lungimea %d\n", strlen((char *)data_received));
+   data_received = read_data_from_fpga(fdr, 24);
+
+   // printf("\n Concatenate = %s", data_received);
+   check_compressed_data(data_received, expected_data4, 24); // expected is identical with GZIP utilitary
+
+   free(data_received);
+
+   close(fdw);
+   close(fdr);                                       // close the file descriptors
+#endif skip_me
+
+
+#ifdef skip_me
+   test_number = test_number + 1;
+   printf("\n\n******************** TEST %d - STATIC HUFFMAN COMPRESSION  ********************\n", test_number);
+   printf("BTYPE = BTYPE_FIXED_HUFFMAN \n");
+   printf("DATA_IN = 516 x 'a', 7 x 'b', 1 x 'c' and 6 x 'a'  \n");
+   uint8_t expected_data5[] = { 0x4a, 0x4c, 0x1c, 0xf1, 0x20, 0x71, 0x24, 0x07, 0x01, 0x60, 0xa0, 0xf8, 0x4f, 
+  0x82,  0x80, 0x64, 0x48, 0xfc, 0x03, 0x00, 0xbe, 0x52, 0x81, 0x1b, 0x12, 0x02,
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+
+
+   write_mem_array_data(BTYPE_FIXED_HUFFMAN, BTYPE_REG);
+   check_mem_array_data(BTYPE_FIXED_HUFFMAN, BTYPE_REG);
+
+   write_mem_array_data(RESET_EN, RESET_REG);
+   write_mem_array_data(RESET_DIS, RESET_REG);
+   check_mem_array_data(RESET_DIS, RESET_REG);
+
+   fdw = open("/dev/xillybus_write_32",O_WRONLY);
+   fdr = open("/dev/xillybus_read_32", O_RDONLY);    // open the file descriptors
+   send_data_to_fpga(fdw, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", 0, BFINAL0, PROCESS_PAYLOAD);
+   send_data_to_fpga(fdw, "aaaabbbbbbbcaaaaaa", 0, BFINAL1, PROCESS_PAYLOAD);
+   data_received = read_data_from_fpga(fdr, 32);
+
+   // printf("\n Concatenate = %s", data_received);
+   check_compressed_data(data_received, expected_data5, 32); // expected is identical with GZIP utilitary
+
+   free(data_received);
+
+   close(fdw);
+   close(fdr);                                       // close the file descriptors
+#endif skip_me
+
+
+#ifdef skip_me
+   test_number = test_number + 1;
+   printf("\n\n******************** TEST %d - STATIC HUFFMAN COMPRESSION  ********************\n", test_number);
+   printf("BTYPE = BTYPE_FIXED_HUFFMAN \n");
+   printf("DATA_IN = 'xabcdefghijk', 499 x 'a', 'xabcdefghijk', 499 x 'a', 'xabcdefghijk'  \n");
+   uint8_t expected_data6[] = {
+  0xaa, 0x48, 0x4c, 0x4a, 0x4e, 0x49, 0x4d, 0x4b, 0xcf, 0xc8, 0xcc, 0xca, 0x4e, 0x4c,
+  0x1c, 0xf1, 0x30, 0x71, 0x84, 0x85, 0x41, 0x05, 0x40, 0x89, 0x23, 0x3e,
+  0xfa, 0x13, 0x47, 0x74, 0xf4, 0x03, 0x96, 0x04, 0x8f, 0x7e, 0x00, 0x58,
+  0x08, 0x79, 0xa8, 0x0a, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00 };
+
+   write_mem_array_data(BTYPE_FIXED_HUFFMAN, BTYPE_REG);
+   check_mem_array_data(BTYPE_FIXED_HUFFMAN, BTYPE_REG);
+
+   write_mem_array_data(RESET_EN, RESET_REG);
+   write_mem_array_data(RESET_DIS, RESET_REG);
+   check_mem_array_data(RESET_DIS, RESET_REG);
+
+   fdw = open("/dev/xillybus_write_32",O_WRONLY);
+   fdr = open("/dev/xillybus_read_32", O_RDONLY);    // open the file descriptors
+   send_data_to_fpga(fdw, "xabcdefghijkaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaax", 0, BFINAL0, PROCESS_PAYLOAD);
+   send_data_to_fpga(fdw, "abcdefghijkaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaxa", 0, BFINAL0, PROCESS_PAYLOAD);
+   send_data_to_fpga(fdw, "bcdefghijk", 0, BFINAL1, PROCESS_PAYLOAD);
+   data_received = read_data_from_fpga(fdr, 48);
+ 
+   // printf("\n Concatenate = %s", data_received);
+   check_compressed_data(data_received, expected_data6, 48); // expected is identical with GZIP utilitary
+
+   free(data_received);
+
+   close(fdw);
+   close(fdr);                                       // close the file descriptors
+#endif skip_me
+
+
+   // Show the results of the KAT
    display_test_result ();
+
 
    return 0;
 }

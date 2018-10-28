@@ -6,14 +6,14 @@
 typedef unsigned char uint8_t;
 typedef long int      uint32_t;
 
-#define DEV_ID              0xBA
+#define DEV_ID              0xC7
 
 // Register addresses
 #define RESET_REG           0
 #define BTYPE_REG           1
 #define DEBUG_REG1          2
 
-#define DEBUG_REV_REG      14
+#define DEBUG_REV_REG      18
 
 #define ISIZE_31_24        3
 #define ISIZE_23_16        4
